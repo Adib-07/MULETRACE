@@ -270,7 +270,7 @@ tr.best td{font-weight:700;background:rgba(110,160,255,.08)}
     <button class="btn" id="bestRing" title="Among open cases, opens the one whose sender and receiver have the most counterparties in the last hour">★ Best ring to show</button>
   </div>
   <div class="grid cases" id="casesGrid">
-    <div class="card queue"><h2>Queue <span id="aCount"></span></h2><div class="list" id="list" role="listbox" aria-label="Cases"></div></div>
+    <div class="card queue"><h2>Queue <span id="aCount"></span></h2><div class="list" id="list" aria-label="Cases"></div></div>
     <div class="card" id="detail">
       <h2>Case <button class="btn ghost hidden" id="closeCase" style="padding:4px 10px" aria-label="Back to the queue (Esc)">← Queue <span class="faint">Esc</span></button></h2>
       <div class="empty" id="ph">Select a case to open it.</div>
@@ -594,17 +594,19 @@ $("analyst").addEventListener("change", () => { try{ localStorage.setItem("mtAna
 segment("fStatus", loadAlerts); segment("fDec", loadAlerts); $("fSort").onchange = loadAlerts;
 async function loadAlerts(){
   const st = segVal("fStatus"), d = segVal("fDec"), so = $("fSort").value;
-  if(!alerts.length) $("list").innerHTML = '<div class="cb"><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>';
+  if(!alerts.length){ listRole(false); $("list").innerHTML = '<div class="cb"><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>'; }
   if(mode === "demo"){
     alerts = SAMPLE_ALERTS.filter(a => (st==="all"||a.status===st) && (d==="all"||a.decision===d));
     if(so === "time") alerts = [...alerts].sort((a,b) => b.ts - a.ts);
   } else {
     try{ alerts = await api(`/alerts?limit=200&status=${encodeURIComponent(st)}&decision=${encodeURIComponent(d)}&sort=${so}`); }
-    catch(e){ $("list").innerHTML = `<div class="banner err" style="margin:var(--s2)">Could not load cases: ${esc(e.message)} <button class="btn ghost" id="lRetry">Retry</button></div>`; $("lRetry").onclick = loadAlerts; if(!e.http) setMode("offline"); return; }
+    catch(e){ listRole(false); $("list").innerHTML = `<div class="banner err" style="margin:var(--s2)">Could not load cases: ${esc(e.message)} <button class="btn ghost" id="lRetry">Retry</button></div>`; $("lRetry").onclick = loadAlerts; if(!e.http) setMode("offline"); return; }
   }
   renderList();
 }
+function listRole(on){ on ? $("list").setAttribute("role", "listbox") : $("list").removeAttribute("role"); }   // listbox only when it holds options
 function renderList(){
+  listRole(alerts.length > 0);
   $("aCount").textContent = alerts.length + (alerts.length===200 ? "+" : "");
   if(!alerts.length){ $("list").innerHTML = `<div class="empty">No cases match these filters.<br>${mode==="live" ? '<button class="btn" id="goLive" style="margin-top:10px">Go to Live and start the stream</button>' : ""}</div>`; if($("goLive")) $("goLive").onclick = () => show("live"); return; }
   $("list").innerHTML = alerts.map(a => `

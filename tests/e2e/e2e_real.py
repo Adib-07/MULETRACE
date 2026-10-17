@@ -118,6 +118,13 @@ with sync_playwright() as p:
     page.go_forward(); expect(page.locator("#p-system")).to_be_visible(timeout=5000)
     ok("back/forward switch pages")
 
+    anon = b.new_context().new_page()                        # no token: account data hidden, prompt shown
+    anon.goto(f"{URL}/#cases"); expect(anon.locator("#tokIn")).to_be_visible(timeout=15000)
+    expect(anon.locator("#mode")).to_have_text("● LIVE")
+    assert anon.locator("#list .alert").count() == 0 and anon.get_attribute("#list", "role") is None
+    anon.close()
+    ok("without token: Cases shows the token prompt, no account data, no empty listbox role")
+
     m = b.new_page(viewport={"width": 390, "height": 844}, device_scale_factor=2); watch(m)
     for name in ("overview", "live", "cases", "evidence", "system"):
         m.goto(f"{URL}/?token={TOKEN}#{name}")
