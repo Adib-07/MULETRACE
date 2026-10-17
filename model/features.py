@@ -113,7 +113,7 @@ SIGNAL_TEXT = {   # feature value -> plain-English sentence with the actual valu
     "cross_cur": _yes_no("Currency changes during the payment", "Same currency on both sides"),
     "fmt": lambda v: "Payment type: " + (FORMATS[int(v)] if 0 <= int(v) < len(FORMATS) else "unknown"),
     "hour": lambda v: f"Sent at {int(v):02d}:00",
-    "round_amt": _yes_no("Round amount (whole number of 100 or more)", "Not a round amount"),
+    "round_amt": _yes_no("Round amount (whole number of 100 or more)", "Amount is not a round number"),
     "dst_in_senders": lambda v: f"Receiver got money from {int(v)} different accounts in the last hour",
     "dst_in_count": lambda v: f"Receiver got {int(v)} payments in the last hour",
     "dst_burst_10m": lambda v: f"{int(v)} payments hit the receiver in the last 10 minutes",
@@ -123,18 +123,25 @@ SIGNAL_TEXT = {   # feature value -> plain-English sentence with the actual valu
     "src_in_amt_log": lambda v: "Sender received " + _money(v) + " in the last hour",
     "fwd_ratio": lambda v: f"Sender has paid out {v * 100:.0f}% of what it received in the last hour",
     "fwd_lag": lambda v: "Sender received no money in the last day" if v >= 1440 else f"Sender last received money {int(v)} min ago",
-    "src_first_seen": _yes_no("Sender account has never been seen before", "Sender account has been seen before"),
-    "dst_first_seen": _yes_no("Receiver account has never been seen before", "Receiver account has been seen before"),
-    "pair_seen": _yes_no("This sender has paid this receiver before", "First payment between these two accounts"),
-    "cycle2": _yes_no("Money flows back to the sender (2-account loop)", "No 2-account loop"),
-    "cycle3": _yes_no("Money returns to the sender through a 3-account loop", "No 3-account loop"),
+    "src_first_seen": _yes_no("Sender account is new (first payment seen)", "Sender account has earlier payment history"),
+    "dst_first_seen": _yes_no("Receiver account is new (first payment seen)", "Receiver account has earlier payment history"),
+    "pair_seen": _yes_no("These two accounts have transacted before", "First payment between these two accounts"),
+    "cycle2": _yes_no("Money flows back to the sender (2-account loop)", "No money flowing back to the sender"),
+    "cycle3": _yes_no("Money returns to the sender through a 3-account loop", "No 3-account loop back to the sender"),
 }
+NETWORK_SIGNALS = {"dst_in_senders", "dst_in_count", "dst_burst_10m", "dst_in_amt_log", "src_out_receivers",
+                   "src_out_count", "src_in_amt_log", "fwd_ratio", "fwd_lag", "cycle2", "cycle3"}
 
-def explain(f, contribs, feats, k=3):
-    """Top-k features pushing this payment towards laundering, from XGBoost pred_contribs (log-odds)."""
-    top = sorted((c, n) for c, n in zip(contribs, feats) if c > 0)[::-1][:k]
+def explain(f, contribs, feats, up=3, down=2):
+    """Strongest per-feature contributions for this payment, from XGBoost pred_contribs (log-odds):
+    up to `up` that raise risk (largest first), then up to `down` that lower it."""
+    pairs = list(zip(contribs, feats))
+    raise_ = sorted((p for p in pairs if p[0] > 0), key=lambda p: -p[0])[:up]
+    lower = sorted((p for p in pairs if p[0] < 0), key=lambda p: p[0])[:down]
     return [{"feature": n, "value": round(float(f[n]), 4), "contribution": round(float(c), 4),
-             "text": SIGNAL_TEXT[n](f[n])} for c, n in top]
+             "direction": "raises risk" if c > 0 else "lowers risk",
+             "group": "network" if n in NETWORK_SIGNALS else "payment",
+             "text": SIGNAL_TEXT[n](f[n])} for c, n in raise_ + lower]
 
 
 def rule_score(f):

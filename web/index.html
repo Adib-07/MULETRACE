@@ -72,7 +72,7 @@ input[aria-invalid="true"],textarea[aria-invalid="true"]{border-color:var(--hold
 .seg{display:inline-flex;border:1px solid var(--line);border-radius:var(--r-sm);overflow:hidden;flex-wrap:wrap}
 .seg button{background:none;border:0;color:var(--mute);padding:6px 10px;font-size:var(--f-sm);font-weight:600;cursor:pointer}
 .seg button[aria-pressed="true"]{background:var(--panel2);color:var(--text)}
-.meta{color:var(--mute);font-size:var(--f-xs)}
+.meta{color:var(--mute);font-size:var(--f-xs)}.faint{color:var(--faint)}
 .mono{font-family:var(--mono);font-size:12px}
 table{width:100%;border-collapse:collapse}
 th{color:var(--mute);font-size:var(--f-xs);text-transform:uppercase;letter-spacing:.5px;text-align:left;font-weight:600;padding:8px 10px;border-bottom:1px solid var(--line)}
@@ -206,8 +206,10 @@ tr.best td{font-weight:700;background:rgba(110,160,255,.08)}
           <div class="details" id="cDetails"></div>
           <div class="meta" style="margin-top:var(--s3)">Ring patterns found</div>
           <ul class="reasons" id="cReasons"></ul>
-          <div class="meta" style="margin-top:var(--s2)">Top model signals for this decision (XGBoost contribution, log-odds)</div>
-          <ul class="reasons" id="cExpl"></ul>
+          <div class="meta" style="margin-top:var(--s2)">Network signals <span class="faint">(model contribution, log-odds)</span></div>
+          <ul class="reasons" id="cNet"></ul>
+          <div class="meta" style="margin-top:var(--s2)">Payment context</div>
+          <ul class="reasons" id="cPay"></ul>
         </div>
         <div class="cb row" style="justify-content:space-between;padding-top:0"><div class="legend"><span><i class="dot" style="background:#6ea0ff"></i>Paid in</span><span><i class="dot" style="background:#f87171"></i>Flagged payment</span><span><i class="dot" style="background:#4ade80"></i>Paid onward</span></div>
           <button class="btn ghost" id="fitBtn" style="padding:4px 10px">⤢ Fit graph</button></div>
@@ -437,6 +439,21 @@ async function tick(){
   }
 }
 
+// ---------- explanations ----------
+const NETWORK = new Set(["dst_in_senders","dst_in_count","dst_burst_10m","dst_in_amt_log","src_out_receivers","src_out_count","src_in_amt_log","fwd_ratio","fwd_lag","cycle2","cycle3"]);
+function signals(a){       // older alerts stored only positive contributions without group/direction
+  return (a.explanations || []).map(x => ({...x, group: x.group || (NETWORK.has(x.feature) ? "network" : "payment"),
+    direction: x.direction || (x.contribution > 0 ? "raises risk" : "lowers risk")}));
+}
+function ruleReasons(a){ const t = new Set((a.explanations || []).map(x => x.text)); return (a.reasons || []).filter(r => !t.has(r) && !r.startsWith("AI risk score")); }
+function sigItem(x){ const up = x.direction === "raises risk";
+  return `<li>${esc(x.text)} <span style="color:${up ? "var(--hold)" : "var(--pass)"};font-size:var(--f-xs);font-weight:700">${up ? "▲ raises risk" : "▼ lowers risk"}</span> <span class="meta">(${x.contribution > 0 ? "+" : ""}${Number(x.contribution).toFixed(2)})</span></li>`; }
+function cardLines(a){   // queue card: first ring pattern, then the top network signal (or the top signal)
+  const up = signals(a).filter(x => x.direction === "raises risk"), top = up.find(x => x.group === "network") || up[0];
+  const lines = ruleReasons(a).slice(0, 1); if(top && !lines.includes(top.text)) lines.push(top.text);
+  return lines.length ? lines : (a.reasons || []).slice(0, 2);
+}
+
 // ---------- cases ----------
 let alerts = [], selected = null, network = null;
 try{ $("analyst").value = localStorage.getItem("mtAnalyst") || "analyst"; }catch(e){}
@@ -461,7 +478,7 @@ function renderList(){
     <div class="alert ${esc(dec(a.decision))}" data-id="${Number(a.id)}" tabindex="0" role="option" aria-selected="${selected&&selected.id===a.id}" aria-label="${esc(dec(a.decision))} case ${Number(a.id)}, ${money(a.amount)}, risk ${Math.round(a.score*100)}">
       <div class="r1"><span>${badge(a.decision)} ${a.status!=="open"?`<span class="badge b-st">${esc(a.status)}</span>`:""}</span><span class="amt">${money(a.amount)}</span><span class="meta">risk ${Math.round(a.score*100)}</span></div>
       <div class="acc">${esc(a.src)} → ${esc(a.dst)}</div>
-      <ul class="reasons">${(a.reasons||[]).slice(0,2).map(r=>`<li>${esc(r)}</li>`).join("")}</ul>
+      <ul class="reasons">${cardLines(a).map(r=>`<li>${esc(r)}</li>`).join("")}</ul>
     </div>`).join("");
 }
 onActivate($("list"), ".alert", el => openAlert(Number(el.dataset.id)));
@@ -479,10 +496,10 @@ async function openAlert(id){
   $("cRec").innerHTML = `Recommendation (simulated) — no money is moved. ${esc(a.recommendation || (d==="HOLD" ? "HOLD — payment paused pending human review (simulated)" : "FLAG — payment proceeds; queued for human review (simulated)"))}`;
   const det = [["From", a.src], ["To", a.dst], ["Time", a.ts ? minTime(a.ts) : "–"], ["Format", a.fmt || "–"], ["Currency", a.currency || "–"], ["Case", "#" + a.id + (a.txn_id ? " · txn " + a.txn_id : "")]];
   $("cDetails").innerHTML = det.map(([k,v]) => `<div><span class="meta">${k}</span><b class="${k==="From"||k==="To"?"mono":""}">${esc(v)}</b></div>`).join("");
-  const expl = a.explanations || [], texts = new Set(expl.map(x => x.text));
-  const rules = (a.reasons||[]).filter(r => !texts.has(r));
-  $("cReasons").innerHTML = rules.length ? rules.map(r => `<li>${esc(r)}</li>`).join("") : '<li class="meta">No ring rule fired; see model signals.</li>';
-  $("cExpl").innerHTML = expl.length ? expl.map(x => `<li>${esc(x.text)} <span class="meta">(+${Number(x.contribution).toFixed(2)})</span></li>`).join("") : '<li class="meta">Not available for this case.</li>';
+  const expl = signals(a), rules = ruleReasons(a);
+  $("cReasons").innerHTML = rules.length ? rules.map(r => `<li>${esc(r)}</li>`).join("") : '<li class="meta">No ring rule fired; see the signals below.</li>';
+  const sigList = g => { const xs = expl.filter(x => x.group === g); return xs.length ? xs.map(sigItem).join("") : `<li class="meta">${expl.length ? "None among the strongest signals." : "Not available for this case."}</li>`; };
+  $("cNet").innerHTML = sigList("network"); $("cPay").innerHTML = sigList("payment");
   $("cNote").value = a.note || ""; $("noteErr").textContent = ""; $("cNote").removeAttribute("aria-invalid");
   $("cStatus").textContent = a.status !== "open" ? "Current status: " + a.status + (a.acted_at ? " · " + when(a.acted_at) : "") : "";
   document.querySelectorAll("#cActions button").forEach(x => x.disabled = mode !== "live");
@@ -570,8 +587,8 @@ async function scoreNow(){
       <div class="r1"><div class="big" style="color:${col}">${ICON[r.decision]||""} ${esc(r.decision)}</div><div style="text-align:right"><div class="big" style="font-size:22px">${Math.round(r.score*100)}<span class="meta">/100 risk</span></div><div class="meta">decided in ${esc(r.latency_ms)} ms (server-side)</div></div></div>
       <div class="meta" style="margin-top:6px">${esc(r.recommendation)} <span class="sim">SIMULATED</span></div>
       <div class="acc" style="margin-top:8px">${esc(r.src)} → ${esc(r.dst)} · ${money(r.amount)} · ${esc(r.fmt)} · ${esc(r.ts)}</div>
-      ${r.reasons.length ? `<ul class="reasons">${r.reasons.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>` : `<p class="meta">No warning signs.</p>`}
-      ${(r.explanations||[]).length ? `<div class="meta" style="margin-top:6px">Top model signals: ${r.explanations.map(x=>esc(x.text)+" (+"+Number(x.contribution).toFixed(2)+")").join(" · ")}</div>` : ""}
+      ${r.decision === "PASS" ? `<p class="meta">No warning signs above the FLAG threshold.</p>` : ruleReasons(r).length ? `<div class="meta" style="margin-top:8px">Ring patterns</div><ul class="reasons">${ruleReasons(r).map(x=>`<li>${esc(x)}</li>`).join("")}</ul>` : ""}
+      ${(r.explanations||[]).length ? `<div class="meta" style="margin-top:8px">Model signals</div><ul class="reasons">${signals(r).map(sigItem).join("")}</ul>` : ""}
       ${r.alert_id ? `<button class="btn ghost" style="margin-top:10px" id="openCase">Open case →</button>` : ""}</div>`;
     if(r.alert_id) $("openCase").onclick = () => { show("cases"); openAlert(r.alert_id); };
   }catch(e){

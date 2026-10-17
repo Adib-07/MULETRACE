@@ -41,8 +41,15 @@ def test_score_alert_action_audit(client):
     body = r.json()
     assert body["decision"] == "FLAG" and body["simulated"] is True
     assert body["recommendation"].startswith("FLAG") and "simulated" in body["recommendation"]
-    assert 1 <= len(body["explanations"]) <= 3
-    assert all({"feature", "value", "contribution", "text"} <= set(e) and e["contribution"] > 0 for e in body["explanations"])
+    ex = body["explanations"]
+    up = [e for e in ex if e["direction"] == "raises risk"]
+    assert 1 <= len(up) <= 3 and len(ex) - len(up) <= 2 and ex[:len(up)] == up         # raising signals first
+    assert all({"feature", "value", "contribution", "text", "direction", "group"} <= set(e) for e in ex)
+    assert all((e["contribution"] > 0) == (e["direction"] == "raises risk") for e in ex)
+    assert [e["contribution"] for e in up] == sorted((e["contribution"] for e in up), reverse=True)
+    net = {"dst_in_senders", "dst_in_count", "dst_burst_10m", "dst_in_amt_log", "src_out_receivers", "src_out_count",
+           "src_in_amt_log", "fwd_ratio", "fwd_lag", "cycle2", "cycle3"}
+    assert all(e["group"] == ("network" if e["feature"] in net else "payment") for e in ex)
     assert body["reasons"] and not any(x.startswith("AI risk score") for x in body["reasons"])
     aid = body["alert_id"]
     alert = client.get(f"/alerts/{aid}").json()

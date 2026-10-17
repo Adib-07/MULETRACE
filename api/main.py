@@ -188,7 +188,7 @@ def score_payment(x: dict):
         contribs = booster.predict(xgb.DMatrix(row), pred_contribs=True)[0][:-1]
         expl = explain(f, contribs, FEATS)
         rule = reasons(f)                       # ring patterns first, then the model's top signals
-        why = rule + [e["text"] for e in expl if e["text"] not in rule]
+        why = rule + [e["text"] for e in expl if e["direction"] == "raises risk" and e["text"] not in rule]
         if not why:
             why = extra_reasons(f, p)
     ms = (time.perf_counter() - t0) * 1000
