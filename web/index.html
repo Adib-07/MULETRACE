@@ -4,7 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>MuleTrace — Investigator Console</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.9/standalone/umd/vis-network.min.js"></script>
+<script src="vendor/vis-network.min.js"></script>
+<script>window.vis || document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.9/standalone/umd/vis-network.min.js"><\/script>')</script>
 <style>
 :root{--bg:#0b0f17;--panel:#121826;--panel2:#171f30;--line:#25304a;--text:#e6ebf5;--mute:#8b97b3;--red:#ef4444;--orange:#f59e0b;--green:#22c55e;--blue:#4f8cff;color-scheme:dark}
 *{box-sizing:border-box}
@@ -33,13 +34,23 @@ h2.pt{margin:0 0 4px;font-size:20px}
 .stat .l{color:var(--mute);font-size:11.5px;text-transform:uppercase;letter-spacing:.6px}
 .stat .v{font-size:26px;font-weight:700;margin-top:2px;font-variant-numeric:tabular-nums}
 .stat .h{color:var(--mute);font-size:12px}
-.stat.hold .v{color:var(--red)}.stat.review .v{color:var(--orange)}.stat.fast .v{color:var(--green)}
+.stat.hold .v{color:var(--red)}.stat.flag .v{color:var(--orange)}.stat.fast .v{color:var(--green)}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;min-width:0}
 .card>h3{margin:0;padding:11px 16px;font-size:12.5px;text-transform:uppercase;letter-spacing:.7px;color:var(--mute);border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:8px}
 .cb{padding:14px 16px}
 .two{grid-template-columns:minmax(300px,380px) 1fr;margin-top:14px}
 .badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:700;letter-spacing:.4px}
-.b-HOLD{background:var(--red);color:#fff}.b-REVIEW{background:var(--orange);color:#1a1200}.b-ALLOW{background:rgba(34,197,94,.15);color:var(--green)}
+.b-HOLD{background:var(--red);color:#fff}.b-FLAG{background:var(--orange);color:#1a1200}.b-PASS{background:rgba(34,197,94,.15);color:var(--green)}
+.sim{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.3px;color:var(--orange);border:1px dashed var(--orange);border-radius:6px;padding:1px 7px;vertical-align:1px}
+.banner{display:none;margin:0 0 14px;padding:10px 14px;border-radius:8px;border:1px solid;font-weight:600}
+.banner.err{display:block;color:#fecaca;background:rgba(239,68,68,.12);border-color:var(--red)}
+.banner.demo{display:block;color:#fde68a;background:rgba(245,158,11,.12);border-color:var(--orange)}
+.banner button{margin-left:10px}
+.audit{list-style:none;margin:8px 0 0;padding:0;font-size:12.5px}
+.audit li{padding:6px 0;border-top:1px solid var(--line);color:#c3cce0}
+.audit li b{color:var(--text)}
+.err-inline{color:#fca5a5;padding:14px 16px}
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
 .b-st{background:var(--panel2);color:var(--mute);border:1px solid var(--line)}
 button.btn{border:0;border-radius:7px;padding:8px 14px;font-weight:700;font-size:13px;cursor:pointer;color:#fff;background:var(--blue)}
 button.btn:disabled{opacity:.4;cursor:not-allowed}
@@ -108,21 +119,22 @@ tr.best td{color:var(--text);font-weight:700;background:rgba(79,140,255,.08)}
   </nav>
   <div class="hright">
     <span id="src" class="pill">connecting…</span>
-    <span id="ibm" class="pill ibm">● IBM Z</span>
+    <span id="ibm" class="pill">platform: checking…</span>
   </div>
 </header>
 
 <div class="wrap">
+<div id="banner" class="banner" role="status" aria-live="polite"></div>
 
 <!-- ============ LIVE MONITOR ============ -->
 <section class="page on" id="p-monitor">
   <h2 class="pt">Live payment monitor</h2>
-  <p class="sub">Every payment is scored the moment it arrives: <b style="color:var(--green)">ALLOW</b>, <b style="color:var(--orange)">REVIEW</b> or <b style="color:var(--red)">HOLD</b>.</p>
+  <p class="sub">Every payment is scored the moment it arrives: <b style="color:var(--green)">PASS</b>, <b style="color:var(--orange)">FLAG</b> or <b style="color:var(--red)">HOLD</b>. Decisions are recommendations; no payment is actually paused <span class="sim">SIMULATED</span></p>
   <div class="grid kpis">
     <div class="stat"><div class="l">Payments scored</div><div class="v" id="kScored">–</div><div class="h" id="kRate">– per second</div></div>
-    <div class="stat fast"><div class="l">Avg decision time</div><div class="v" id="kMs">–</div><div class="h">milliseconds on IBM Z</div></div>
-    <div class="stat review"><div class="l">Review</div><div class="v" id="kReview">–</div><div class="h">sent to an investigator</div></div>
-    <div class="stat hold"><div class="l">Hold</div><div class="v" id="kHold">–</div><div class="h">stopped before money moves</div></div>
+    <div class="stat fast"><div class="l">Avg decision time</div><div class="v" id="kMs">–</div><div class="h">ms, server-side, this machine</div></div>
+    <div class="stat flag"><div class="l">Flag</div><div class="v" id="kReview">–</div><div class="h">queued for an investigator</div></div>
+    <div class="stat hold"><div class="l">Hold</div><div class="v" id="kHold">–</div><div class="h">recommended pause (simulated)</div></div>
     <div class="stat"><div class="l">Flag rate</div><div class="v" id="kFlag">–</div><div class="h">of all payments</div></div>
   </div>
 
@@ -140,7 +152,7 @@ tr.best td{color:var(--text);font-weight:700;background:rgba(79,140,255,.08)}
         <div class="note" id="replayInfo">Stream is stopped.</div>
         <label style="margin-top:18px">Decision mix</label>
         <div class="mix" id="mix"></div>
-        <div class="legend"><span><i class="dot" style="background:var(--green)"></i>Allow <b id="mA">–</b></span><span><i class="dot" style="background:var(--orange)"></i>Review <b id="mR">–</b></span><span><i class="dot" style="background:var(--red)"></i>Hold <b id="mH">–</b></span></div>
+        <div class="legend"><span><i class="dot" style="background:var(--green)"></i>Pass <b id="mA">–</b></span><span><i class="dot" style="background:var(--orange)"></i>Flag <b id="mR">–</b></span><span><i class="dot" style="background:var(--red)"></i>Hold <b id="mH">–</b></span></div>
       </div>
     </div>
     <div class="card">
@@ -157,7 +169,8 @@ tr.best td{color:var(--text);font-weight:700;background:rgba(79,140,255,.08)}
   <p class="sub">Highest risk first. Open an alert to trace the money and record your decision.</p>
   <div class="row" style="margin-bottom:12px">
     <div class="seg" id="fStatus"><button data-v="open" class="on">Open</button><button data-v="confirm">Confirmed</button><button data-v="escalate">Escalated</button><button data-v="dismiss">Dismissed</button><button data-v="all">All</button></div>
-    <div class="seg" id="fDec"><button data-v="all" class="on">All</button><button data-v="HOLD">Hold</button><button data-v="REVIEW">Review</button></div>
+    <div class="seg" id="fDec"><button data-v="all" class="on">All</button><button data-v="HOLD">Hold</button><button data-v="FLAG">Flag</button></div>
+    <div style="margin-left:auto;min-width:200px"><label for="analyst" style="margin:0 0 4px">Analyst name (recorded in the audit log)</label><input id="analyst" maxlength="64" value="analyst" autocomplete="off"></div>
   </div>
   <div class="grid two" style="margin-top:0">
     <div class="card"><h3>Alerts <span id="aCount"></span></h3><div class="list" id="list"></div></div>
@@ -173,14 +186,19 @@ tr.best td{color:var(--text);font-weight:700;background:rgba(79,140,255,.08)}
         <div id="graph"></div>
         <div class="cb">
           <div class="legend" style="margin-bottom:10px"><span><i class="dot" style="background:#4f8cff"></i>Paid the sender</span><span><i class="dot" style="background:#ef4444"></i>Flagged payment</span><span><i class="dot" style="background:#22c55e"></i>Received money onward</span><span id="gInfo"></span></div>
-          <label>Investigator note (optional)</label>
+          <div class="meta" id="cRec" style="margin-bottom:8px"></div>
+          <label for="cNote">Investigator note (optional)</label>
           <textarea id="cNote" rows="2" maxlength="500" placeholder="e.g. Account opened last week, matches known mule pattern"></textarea>
-          <div class="row" style="margin-top:10px">
+          <div class="row" id="cActions" style="margin-top:10px">
             <button class="btn confirm" data-a="confirm">Confirm laundering</button>
             <button class="btn escalate" data-a="escalate">Escalate</button>
             <button class="btn dismiss" data-a="dismiss">Dismiss</button>
+            <span class="sim">SIMULATED — recommendation only</span>
             <span class="meta" id="cStatus"></span>
           </div>
+          <div class="note">Your decision is written to an append-only audit log. No payment is actually held, released or reported.</div>
+          <label style="margin-top:14px">Audit history</label>
+          <ul class="audit" id="cAudit"></ul>
         </div>
       </div>
     </div>
@@ -199,7 +217,7 @@ tr.best td{color:var(--text);font-weight:700;background:rgba(79,140,255,.08)}
       <div class="row"><div style="flex:1"><label>Amount</label><input id="fAmt" type="number" min="0.01" step="0.01" value="2365.85"></div>
       <div style="flex:1"><label>Payment type</label><select id="fFmt"><option>ACH</option><option>Wire</option><option>Cheque</option><option>Credit Card</option><option>Cash</option><option>Bitcoin</option><option>Reinvestment</option></select></div></div>
       <div class="row"><div style="flex:1"><label>Currency paid</label><select id="fCur"></select></div><div style="flex:1"><label>Currency received</label><select id="fCur2"></select></div></div>
-      <label>Date and time</label><input id="fTs" value="2022-09-03 14:31">
+      <label for="fTs">Date and time (leave blank for the current stream time)</label><input id="fTs" value="" placeholder="blank = now in the stream · or YYYY-MM-DD HH:MM">
       <button class="btn" id="scoreBtn" style="margin-top:14px;width:100%">Score payment</button>
       <div class="note">Scored payments become part of the live history, exactly like real traffic.</div>
     </div></div>
@@ -231,10 +249,10 @@ tr.best td{color:var(--text);font-weight:700;background:rgba(79,140,255,.08)}
       <div class="s"><b>1 · Payment arrives</b><span>From the bank's payment stream</span></div><div class="ar">→</div>
       <div class="s"><b>2 · Flow memory</b><span>Last 60 minutes of money movement per account</span></div><div class="ar">→</div>
       <div class="s"><b>3 · Network signals</b><span id="sigCount">Senders, forwarding speed, loops, bursts</span></div><div class="ar">→</div>
-      <div class="s"><b>4 · AI decision</b><span>ALLOW / REVIEW / HOLD + reasons</span></div><div class="ar">→</div>
-      <div class="s"><b>5 · Investigator</b><span>Confirm, escalate or dismiss</span></div>
+      <div class="s"><b>4 · AI recommendation</b><span>PASS / FLAG / HOLD + reasons</span></div><div class="ar">→</div>
+      <div class="s"><b>5 · Investigator decides</b><span>Confirm, escalate or dismiss · audit-logged</span></div>
     </div>
-    <div class="note">Everything runs on one IBM LinuxONE machine. No payment data is sent to any outside service.</div>
+    <div class="note">Scoring, flow memory and alerts run on this one server; the API makes no outbound calls. HOLD and analyst actions are simulated: no real payment is affected.</div>
   </div></div>
 </section>
 </div>
@@ -243,15 +261,23 @@ tr.best td{color:var(--text);font-weight:700;background:rgba(79,140,255,.08)}
 <script>
 // ---------- config ----------
 const qs = new URLSearchParams(location.search);
-const API = qs.get("api") || (location.protocol.startsWith("http") && location.port ? "" : "http://localhost:8000");
+const API = qs.get("api") || (location.protocol.startsWith("http") ? "" : "http://localhost:8000");
+const DEMO_REQUESTED = qs.get("demo") === "1";
+let TOKEN = "";
+try{
+  if(qs.get("token")){ sessionStorage.setItem("mtToken", qs.get("token")); qs.delete("token"); history.replaceState(null, "", location.pathname + (qs.toString() ? "?" + qs : "") + location.hash); }
+  TOKEN = sessionStorage.getItem("mtToken") || "";
+}catch(e){ TOKEN = qs.get("token") || ""; }
 
-// Offline sample (real outputs from our API) used only when the API cannot be reached
-const SAMPLE_ALERTS = [{"id":11,"ts":27702196,"src":"0210575_806A8FB00","dst":"0215841_80F1BB2B0","amount":1292091.71,"score":0.9957,"decision":"HOLD","reasons":["Sender is passing on 100% of money it received 0 min ago"],"status":"open"},{"id":25,"ts":27702199,"src":"021745_803366440","dst":"0021615_8036AE1C0","amount":43038.53,"score":0.993,"decision":"HOLD","reasons":["Sender is passing on 100% of money it received 0 min ago"],"status":"open"},{"id":15,"ts":27702196,"src":"0332461_80BCDC4A0","dst":"0021142_80BCCCED0","amount":301.5,"score":0.9898,"decision":"HOLD","reasons":["AI risk score 99/100, similar to known laundering"],"status":"open"},{"id":13,"ts":27702196,"src":"070_1004286A8","dst":"01490_8019BD7D0","amount":5215.78,"score":0.9573,"decision":"REVIEW","reasons":["Sender is passing on 100% of money it received 4 min ago","Sender paid 413 different accounts in the last hour"],"status":"open"},{"id":5,"ts":27702195,"src":"070_1004286A8","dst":"021749_802E96820","amount":5958.85,"score":0.9313,"decision":"REVIEW","reasons":["Sender is passing on 100% of money it received 3 min ago","Sender paid 415 different accounts in the last hour"],"status":"open"},{"id":20,"ts":27702197,"src":"0118_8000C6C40","dst":"0038478_80E47CF60","amount":2365.85,"score":0.877,"decision":"REVIEW","reasons":["AI risk score 88/100, similar to known laundering"],"status":"open"},{"id":26,"ts":27702199,"src":"0223635_812D9FD20","dst":"0143508_8130D6F60","amount":603.02,"score":0.7717,"decision":"REVIEW","reasons":["Receiver got money from 36 different accounts in the last hour","15 payments hit the receiver within 10 minutes"],"status":"open"}];
-const SAMPLE_STATS = {"scored":3000,"allow":2972,"review":24,"hold":4,"avg_ms":1.46,"per_sec":0,"replay":{"running":false,"pos":0,"total":400000}};
-const SAMPLE_SYSTEM = {"arch":"s390x","byteorder":"big","python":"3.12.3","nnpa":true,"machine_type":"9175","cpus":3,"data_egress":"none","features":20};
+// Recorded sample (samples/*.json, 3,000-payment replay on the LinuxONE VM with the first model).
+// Shown ONLY in demo mode, which is opt-in (?demo=1 or the button in the offline banner) and always labelled.
+const SAMPLE_ALERTS = [{"id":11,"ts":27702196,"src":"0210575_806A8FB00","dst":"0215841_80F1BB2B0","amount":1292091.71,"score":0.9957,"decision":"HOLD","reasons":["Sender is passing on 100% of money it received 0 min ago"],"status":"open"},{"id":25,"ts":27702199,"src":"021745_803366440","dst":"0021615_8036AE1C0","amount":43038.53,"score":0.993,"decision":"HOLD","reasons":["Sender is passing on 100% of money it received 0 min ago"],"status":"open"},{"id":15,"ts":27702196,"src":"0332461_80BCDC4A0","dst":"0021142_80BCCCED0","amount":301.5,"score":0.9898,"decision":"HOLD","reasons":["AI risk score 99/100, similar to known laundering"],"status":"open"},{"id":13,"ts":27702196,"src":"070_1004286A8","dst":"01490_8019BD7D0","amount":5215.78,"score":0.9573,"decision":"FLAG","reasons":["Sender is passing on 100% of money it received 4 min ago","Sender paid 413 different accounts in the last hour"],"status":"open"},{"id":5,"ts":27702195,"src":"070_1004286A8","dst":"021749_802E96820","amount":5958.85,"score":0.9313,"decision":"FLAG","reasons":["Sender is passing on 100% of money it received 3 min ago","Sender paid 415 different accounts in the last hour"],"status":"open"},{"id":20,"ts":27702197,"src":"0118_8000C6C40","dst":"0038478_80E47CF60","amount":2365.85,"score":0.877,"decision":"FLAG","reasons":["AI risk score 88/100, similar to known laundering"],"status":"open"},{"id":26,"ts":27702199,"src":"0223635_812D9FD20","dst":"0143508_8130D6F60","amount":603.02,"score":0.7717,"decision":"FLAG","reasons":["Receiver got money from 36 different accounts in the last hour","15 payments hit the receiver within 10 minutes"],"status":"open"}];
+const SAMPLE_STATS = {"scored":3000,"pass":2972,"flag":24,"hold":4,"avg_ms":1.52,"per_sec":0,"replay":{"running":false,"pos":0,"total":400000}};
+const SAMPLE_SYSTEM = {"arch":"s390x","byteorder":"big","python":"3.12.3","nnpa":true,"machine_type":"9175","data_egress":"none"};
 const SAMPLE_METRICS = [{"model":"A: transaction-only model","pr_auc":0.0094,"recall":0.194,"precision":0.016,"review_pct":1.18,"fp_per_1000":11.62},{"model":"B: simple rules","pr_auc":0.0021,"recall":0.003,"precision":0.0,"review_pct":1.17,"fp_per_1000":11.68},{"model":"C: MuleTrace network model","pr_auc":0.2188,"recall":0.457,"precision":0.05,"review_pct":0.9,"fp_per_1000":8.57}];
 const CURRENCIES = ["US Dollar","Euro","UK Pound","Yuan","Yen","Rupee","Swiss Franc","Canadian Dollar","Australian Dollar","Mexican Peso","Brazil Real","Ruble","Shekel","Saudi Riyal","Bitcoin"];
 const MACHINES = {"9175":"IBM z17","9176":"IBM z17","3931":"IBM z16","3932":"IBM z16","8561":"IBM z15","8562":"IBM z15"};
+const DEC_COLOR = {HOLD:"var(--red)", FLAG:"var(--orange)", PASS:"var(--green)"};
 
 // ---------- helpers ----------
 const $ = id => document.getElementById(id);
@@ -260,36 +286,64 @@ const money = n => "$" + Number(n).toLocaleString(undefined,{minimumFractionDigi
 const num = n => Number(n).toLocaleString();
 const short = a => a && a.length > 20 ? a.slice(0,9) + "…" + a.slice(-7) : a;
 const riskColor = s => s >= 0.9 ? "var(--red)" : s >= 0.5 ? "var(--orange)" : "var(--green)";
-let demo = false, page = "monitor";
-function toast(msg){ const t=$("toast"); t.textContent=msg; t.style.display="block"; clearTimeout(t._h); t._h=setTimeout(()=>t.style.display="none",2600); }
+const dec = d => ({ALLOW:"PASS", REVIEW:"FLAG"})[d] || d;           // old rows used ALLOW/REVIEW
+const badge = d => `<span class="badge b-${esc(dec(d))}">${esc(dec(d))}</span>`;
+const when = s => new Date(s * 1000).toLocaleString();
+let mode = "connecting", page = "monitor";   // live | offline | demo
+function toast(msg){ const t=$("toast"); t.textContent=msg; t.style.display="block"; clearTimeout(t._h); t._h=setTimeout(()=>t.style.display="none",3200); }
 
 async function api(path, opts={}){
-  const ctl = new AbortController(); const t = setTimeout(()=>ctl.abort(), 4000);
+  const ctl = new AbortController(); const t = setTimeout(()=>ctl.abort(), 10000);
+  const headers = {"Content-Type":"application/json"}; if(TOKEN) headers["X-MuleTrace-Token"] = TOKEN;
   try{
-    const r = await fetch(API + path, {...opts, signal: ctl.signal, headers: {"Content-Type":"application/json"}});
+    const r = await fetch(API + path, {...opts, signal: ctl.signal, headers});
     const body = await r.json().catch(()=> ({}));
-    if(!r.ok){ const e = new Error(typeof body.detail === "string" ? body.detail : ("Error " + r.status)); e.http = true; throw e; }
+    if(!r.ok){
+      let msg = typeof body.detail === "string" ? body.detail
+        : Array.isArray(body.detail) ? body.detail.map(d => (d.loc||[]).slice(-1)[0] + ": " + d.msg).join("; ") : "Error " + r.status;
+      if(r.status === 401) msg = "API token required: open the console with ?token=YOUR_TOKEN";
+      const e = new Error(msg); e.http = r.status; throw e;
+    }
     return body;
   } finally { clearTimeout(t); }
 }
-function setMode(isDemo){
-  demo = isDemo;
-  $("src").textContent = isDemo ? "DEMO DATA · API offline" : "LIVE";
-  $("src").className = "pill " + (isDemo ? "demo" : "live");
-  ["startBtn","stopBtn","scoreBtn"].forEach(id => $(id).disabled = isDemo);
+function setMode(m, detail){
+  mode = m;
+  const pill = $("src"), b = $("banner");
+  pill.textContent = {live:"LIVE", offline:"API OFFLINE", demo:"DEMO DATA · not live"}[m] || m;
+  pill.className = "pill " + (m==="live" ? "live" : "demo");
+  if(m === "offline"){
+    b.className = "banner err";
+    b.innerHTML = `Cannot reach the MuleTrace API${detail ? " (" + esc(detail) + ")" : ""}. Numbers on screen are the last live values and are not updating.
+      <button class="btn ghost" id="bRetry">Retry</button><button class="btn ghost" id="bDemo">Show recorded demo data</button>`;
+    $("bRetry").onclick = () => tick(); $("bDemo").onclick = () => { setMode("demo"); tick(); show(page); };
+  } else if(m === "demo"){
+    b.className = "banner demo";
+    b.innerHTML = `DEMO MODE: recorded sample from a 3,000-payment replay on the LinuxONE VM. Nothing here is live and actions are disabled.
+      <button class="btn ghost" id="bLive">Try live API</button>`;
+    $("bLive").onclick = () => { setMode("connecting"); tick(); show(page); };
+  } else { b.className = "banner"; b.innerHTML = ""; }
+  const live = m === "live";
+  ["scoreBtn"].forEach(id => $(id).disabled = !live);
+  document.querySelectorAll("#cActions button").forEach(x => x.disabled = !live);
+  if(!live){ $("startBtn").disabled = true; $("stopBtn").disabled = true; }
 }
 function segment(id, cb){
   $(id).addEventListener("click", e => { const b = e.target.closest("button"); if(!b) return;
     [...$(id).children].forEach(x => x.classList.toggle("on", x===b)); cb(b.dataset.v); });
 }
 const segVal = id => $(id).querySelector(".on").dataset.v;
+function onActivate(container, selector, fn){   // click + Enter/Space for keyboard users
+  container.addEventListener("click", e => { const el = e.target.closest(selector); if(el) fn(el); });
+  container.addEventListener("keydown", e => { if(e.key!=="Enter" && e.key!==" ") return; const el = e.target.closest(selector); if(el){ e.preventDefault(); fn(el); } });
+}
 
 // ---------- navigation ----------
 function show(p){
   page = p;
   document.querySelectorAll("#nav button").forEach(b => b.classList.toggle("on", b.dataset.p===p));
   document.querySelectorAll(".page").forEach(s => s.classList.toggle("on", s.id==="p-"+p));
-  if(location.hash !== "#"+p) history.replaceState(null, "", "#"+p);
+  if(location.hash !== "#"+p) history.replaceState(null, "", location.pathname + location.search + "#" + p);
   if(p==="investigate") loadAlerts();
   if(p==="results") loadMetrics();
   if(p==="system") loadSystem();
@@ -300,66 +354,72 @@ $("nav").addEventListener("click", e => { const b = e.target.closest("button"); 
 // ---------- live monitor ----------
 let seen = new Set();
 function renderStats(s){
+  const flag = s.flag ?? s.review ?? 0, hold = s.hold || 0, flagged = flag + hold;
   $("kScored").textContent = num(s.scored||0);
   $("kRate").textContent = (s.per_sec ?? 0) + " per second";
   $("kMs").textContent = s.avg_ms ? Number(s.avg_ms).toFixed(2) : "–";
-  $("kReview").textContent = num(s.review||0);
-  $("kHold").textContent = num(s.hold||0);
-  const flagged = (s.review||0) + (s.hold||0);
+  $("kReview").textContent = num(flag);
+  $("kHold").textContent = num(hold);
   $("kFlag").textContent = s.scored ? (flagged / s.scored * 100).toFixed(2) + "%" : "–";
-  const allow = s.allow ?? Math.max(0, (s.scored||0) - flagged), tot = Math.max(1, allow + flagged);
-  $("mix").innerHTML = `<i style="width:${allow/tot*100}%;background:var(--green)"></i><i style="width:${Math.max((s.review||0)/tot*100, s.review?0.6:0)}%;background:var(--orange)"></i><i style="width:${Math.max((s.hold||0)/tot*100, s.hold?0.6:0)}%;background:var(--red)"></i>`;
-  $("mA").textContent = num(allow); $("mR").textContent = num(s.review||0); $("mH").textContent = num(s.hold||0);
+  const pass = s.pass ?? s.allow ?? Math.max(0, (s.scored||0) - flagged), tot = Math.max(1, pass + flagged);
+  $("mix").innerHTML = `<i style="width:${pass/tot*100}%;background:var(--green)"></i><i style="width:${Math.max(flag/tot*100, flag?0.6:0)}%;background:var(--orange)"></i><i style="width:${Math.max(hold/tot*100, hold?0.6:0)}%;background:var(--red)"></i>`;
+  $("mA").textContent = num(pass); $("mR").textContent = num(flag); $("mH").textContent = num(hold);
   const r = s.replay || {};
-  $("replayInfo").innerHTML = r.running ? `<b style="color:var(--green)">● Streaming</b> at ${r.speed}/s · ${num(r.pos)} of ${num(r.total)} test payments played`
-    : (r.pos ? `Stopped · ${num(r.pos)} of ${num(r.total||400000)} test payments played` : "Stream is stopped.");
-  $("startBtn").disabled = demo || !!r.running; $("stopBtn").disabled = demo || !r.running;
+  $("replayInfo").innerHTML = r.error ? `<span style="color:var(--red)">${esc(r.error)}</span>`
+    : r.running ? `<b style="color:var(--green)">● Streaming</b> at ${esc(r.speed)}/s · ${num(r.pos)} of ${num(r.total)} test payments played`
+    : (r.pos ? `Stopped · ${num(r.pos)} of ${num(r.total||0)} test payments played` : "Stream is stopped.");
+  if(r.rejected) $("replayInfo").innerHTML += ` · ${num(r.rejected)} rejected (out of order or duplicate)`;
+  $("startBtn").disabled = mode!=="live" || !!r.running; $("stopBtn").disabled = mode!=="live" || !r.running;
   const open = s.by_status ? (s.by_status.open||0) : null;
   $("navCount").textContent = open ? "(" + num(open) + ")" : "";
 }
 function renderFeed(rows){
   const only = $("onlyFlag").checked;
-  rows = rows.filter(r => !only || r.decision !== "ALLOW").slice(0, 80);
+  rows = rows.filter(r => !only || dec(r.decision) !== "PASS").slice(0, 80);
   $("feedEmpty").style.display = rows.length ? "none" : "block";
   $("feed").innerHTML = rows.map(r => {
     const k = r.txn_id + "|" + r.src + "|" + r.amount, isNew = !seen.has(k); seen.add(k);
-    return `<tr class="${isNew?"new":""}" ${r.alert_id?`style="cursor:pointer" data-alert="${r.alert_id}"`:""}>
-      <td><span class="badge b-${r.decision}">${r.decision}</span></td>
+    return `<tr class="${isNew?"new":""}" ${r.alert_id?`style="cursor:pointer" tabindex="0" role="button" aria-label="Open case ${Number(r.alert_id)}" data-alert="${Number(r.alert_id)}"`:""}>
+      <td>${badge(r.decision)}</td>
       <td><span class="sbar"><i style="width:${Math.round(r.score*100)}%;background:${riskColor(r.score)}"></i></span>${Math.round(r.score*100)}</td>
       <td class="mono">${esc(short(r.src))} → ${esc(short(r.dst))}</td>
       <td style="text-align:right">${money(r.amount)}</td>
-      <td style="text-align:right" class="meta">${r.latency_ms!=null ? r.latency_ms + " ms" : ""}</td></tr>`; }).join("");
+      <td style="text-align:right" class="meta">${r.latency_ms!=null ? esc(r.latency_ms) + " ms" : ""}</td></tr>`; }).join("");
   if(seen.size > 3000) seen = new Set([...seen].slice(-1000));
 }
-$("feed").addEventListener("click", e => { const tr = e.target.closest("tr[data-alert]"); if(tr){ show("investigate"); openAlert(Number(tr.dataset.alert)); }});
+onActivate($("feed"), "tr[data-alert]", tr => { show("investigate"); openAlert(Number(tr.dataset.alert)); });
 $("onlyFlag").addEventListener("change", () => tick());
 segment("speed", () => {});
 $("startBtn").onclick = async () => {
   try{ await api("/replay/start", {method:"POST", body: JSON.stringify({n: 400000, speed: Number(segVal("speed"))})}); toast("Payment stream started"); tick(); }
   catch(e){ toast(e.message); }
 };
-$("stopBtn").onclick = async () => { try{ await api("/replay/stop", {method:"POST"}); toast("Stream stopping"); setTimeout(tick, 400); } catch(e){ toast(e.message); } };
+$("stopBtn").onclick = async () => { try{ await api("/replay/stop", {method:"POST", body:"{}"}); toast("Stream stopped"); tick(); } catch(e){ toast(e.message); } };
 
 async function tick(){
+  if(mode === "demo"){ renderStats(SAMPLE_STATS); renderFeed(SAMPLE_ALERTS.map(a => ({...a, txn_id: a.id}))); return; }
   try{
     const [s, rec] = await Promise.all([api("/stats"), api("/recent?limit=80")]);
-    setMode(false); renderStats(s); renderFeed(rec);
+    if(mode !== "live") setMode("live");
+    renderStats(s); renderFeed(rec);
   }catch(e){
-    if(e.http) return;
-    setMode(true); renderStats(SAMPLE_STATS);
-    renderFeed(SAMPLE_ALERTS.map(a => ({...a, txn_id: a.id})));
+    if(e.http){ toast(e.message); return; }
+    if(mode !== "offline") setMode("offline", e.name === "AbortError" ? "no reply within 10 s" : "");
   }
 }
 
 // ---------- investigate ----------
 let alerts = [], selected = null, network = null;
+try{ $("analyst").value = localStorage.getItem("mtAnalyst") || "analyst"; }catch(e){}
+$("analyst").addEventListener("change", () => { try{ localStorage.setItem("mtAnalyst", $("analyst").value.trim()); }catch(e){} });
 segment("fStatus", loadAlerts); segment("fDec", loadAlerts);
 async function loadAlerts(){
-  const st = segVal("fStatus"), dec = segVal("fDec");
-  if(demo){
-    alerts = SAMPLE_ALERTS.filter(a => (st==="all"||a.status===st) && (dec==="all"||a.decision===dec));
+  const st = segVal("fStatus"), d = segVal("fDec");
+  if(mode === "demo"){
+    alerts = SAMPLE_ALERTS.filter(a => (st==="all"||a.status===st) && (d==="all"||a.decision===d));
   } else {
-    try{ alerts = await api(`/alerts?limit=200&status=${st}&decision=${dec}`); }catch(e){ if(!e.http){ setMode(true); return loadAlerts(); } toast(e.message); return; }
+    try{ alerts = await api(`/alerts?limit=200&status=${encodeURIComponent(st)}&decision=${encodeURIComponent(d)}`); }
+    catch(e){ $("list").innerHTML = `<div class="err-inline">Could not load alerts: ${esc(e.message)}</div>`; if(!e.http) setMode("offline"); return; }
   }
   renderList();
 }
@@ -367,35 +427,49 @@ function renderList(){
   $("aCount").textContent = alerts.length + (alerts.length===200 ? "+" : "");
   if(!alerts.length){ $("list").innerHTML = '<div class="empty">No alerts here.<br>Start the payment stream on the Live Monitor.</div>'; return; }
   $("list").innerHTML = alerts.map(a => `
-    <div class="alert ${a.decision} ${selected&&selected.id===a.id?"sel":""}" data-id="${a.id}">
-      <div class="r1"><span><span class="badge b-${a.decision}">${a.decision}</span> ${a.status!=="open"?`<span class="badge b-st">${esc(a.status)}</span>`:""}</span>
+    <div class="alert ${esc(dec(a.decision))} ${selected&&selected.id===a.id?"sel":""}" data-id="${Number(a.id)}" tabindex="0" role="button" aria-label="Open ${esc(dec(a.decision))} case ${Number(a.id)}, ${money(a.amount)}">
+      <div class="r1"><span>${badge(a.decision)} ${a.status!=="open"?`<span class="badge b-st">${esc(a.status)}</span>`:""}</span>
         <span class="amt">${money(a.amount)}</span><span class="meta">risk ${Math.round(a.score*100)}</span></div>
       <div class="acc">${esc(a.src)} → ${esc(a.dst)}</div>
       <ul class="reasons">${(a.reasons||[]).slice(0,2).map(r=>`<li>${esc(r)}</li>`).join("")}</ul>
     </div>`).join("");
 }
-$("list").addEventListener("click", e => { const el = e.target.closest(".alert"); if(el) openAlert(Number(el.dataset.id)); });
+onActivate($("list"), ".alert", el => openAlert(Number(el.dataset.id)));
 
 async function openAlert(id){
   let a = alerts.find(x => x.id===id);
-  if(!a && !demo){ try{ a = await api("/alerts/" + id); }catch(e){ toast(e.message); return; } }
+  if(!a && mode !== "demo"){ try{ a = await api("/alerts/" + id); }catch(e){ toast(e.message); return; } }
   if(!a) return;
   selected = a; renderList();
   $("ph").style.display = "none"; $("case").style.display = "block";
-  $("cBadge").innerHTML = `<span class="badge b-${a.decision}">${a.decision}</span>`;
+  $("cBadge").innerHTML = badge(a.decision) + (dec(a.decision)!=="PASS" ? ' <span class="sim">SIMULATED</span>' : "");
   $("cAmt").textContent = money(a.amount);
   $("cMeta").textContent = `Risk ${Math.round(a.score*100)}/100` + (a.fmt ? " · " + a.fmt : "") + (a.currency ? " · " + a.currency : "");
   $("cSrc").textContent = a.src; $("cDst").textContent = a.dst;
   $("cReasons").innerHTML = (a.reasons||[]).map(r => `<li>${esc(r)}</li>`).join("");
+  $("cRec").textContent = "Recommendation: " + (a.recommendation || (dec(a.decision)==="HOLD" ? "HOLD — payment paused pending human review (simulated)" : "FLAG — payment proceeds; queued for human review (simulated)"));
   $("cNote").value = a.note || "";
   $("cStatus").textContent = a.status !== "open" ? "Current status: " + a.status : "";
+  document.querySelectorAll("#cActions button").forEach(x => x.disabled = mode !== "live");
+  loadAudit(a.id);
   drawCase(a);
 }
+async function loadAudit(id){
+  if(mode === "demo"){ $("cAudit").innerHTML = '<li class="meta">No audit history in demo mode.</li>'; return; }
+  try{
+    const rows = await api(`/alerts/${id}/audit`);
+    $("cAudit").innerHTML = rows.length ? rows.map(r => `<li><b>${esc(r.action)}</b> by ${esc(r.analyst)} · ${esc(when(r.created_at))}
+      ${r.from_status ? ` · ${esc(r.from_status)} → ${esc(r.to_status)}` : ""}${r.note ? `<br><span class="meta">${esc(r.note)}</span>` : ""}</li>`).join("")
+      : '<li class="meta">No entries yet.</li>';
+  }catch(e){ $("cAudit").innerHTML = `<li class="err-inline">Could not load audit history: ${esc(e.message)}</li>`; }
+}
 async function drawCase(a){
-  let gs, gd;
-  if(demo){ gs = {edges:[]}; gd = {edges:[]}; }
-  else { try{ [gs, gd] = await Promise.all([api(`/graph/${encodeURIComponent(a.src)}?limit=10`), api(`/graph/${encodeURIComponent(a.dst)}?limit=10`)]); }catch(e){ gs={edges:[]}; gd={edges:[]}; } }
-  if(!window.vis){ $("graph").innerHTML = '<div class="empty">Graph library could not load (no internet).</div>'; return; }
+  let gs = {edges:[]}, gd = {edges:[]};
+  if(mode === "live"){
+    try{ [gs, gd] = await Promise.all([api(`/graph/${encodeURIComponent(a.src)}?limit=10`), api(`/graph/${encodeURIComponent(a.dst)}?limit=10`)]); }
+    catch(e){ $("gInfo").textContent = "Graph unavailable: " + e.message; }
+  }
+  if(!window.vis){ $("graph").innerHTML = '<div class="empty">Graph library could not load.</div>'; return; }
   const nodes = new Map(), edges = new Map();
   const node = (id, level, color, size=13) => { if(!nodes.has(id)) nodes.set(id, {id, level, label: short(id), title: id, size, color:{background:color,border:"#0b0f17"}, font:{color:"#e6ebf5",size:11,face:"monospace"}}); };
   const edge = (f, t, amt, cnt, hi) => { const k=f+"|"+t; if(edges.has(k) && !hi) return;
@@ -405,23 +479,22 @@ async function drawCase(a){
   (gs.edges||[]).forEach(e => { if(e.to===a.src){ node(e.from, 0, "#4f8cff"); edge(e.from, a.src, e.amount, e.count); } else if(e.from===a.src && e.to!==a.dst){ node(e.to, 2, "#22c55e"); edge(a.src, e.to, e.amount, e.count); } });
   (gd.edges||[]).forEach(e => { if(e.from===a.dst){ node(e.to, 3, "#22c55e"); edge(a.dst, e.to, e.amount, e.count); } else if(e.to===a.dst && e.from!==a.src){ node(e.from, 1, "#4f8cff"); edge(e.from, a.dst, e.amount, e.count); } });
   edge(a.src, a.dst, a.amount, 1, true);
-  $("gInfo").textContent = gs.senders_total!=null ? `Sender: ${gs.senders_total} payers, ${gs.receivers_total} payees in the last hour · showing the largest` : "";
+  if(gs.senders_total!=null) $("gInfo").textContent = `Sender: ${gs.senders_total} payers, ${gs.receivers_total} payees in the last hour · showing the largest`;
+  else if(mode === "demo") $("gInfo").textContent = "Demo mode: flow graph needs the live API";
   if(network) network.destroy();
   network = new vis.Network($("graph"), {nodes: new vis.DataSet([...nodes.values()]), edges: new vis.DataSet([...edges.values()])}, {
     layout:{hierarchical:{enabled:true, direction:"LR", sortMethod:"directed", levelSeparation:230, nodeSpacing:48}},
-    physics:false, interaction:{hover:true, tooltipDelay:80}, nodes:{shape:"dot", borderWidth:2}});
+    physics:false, interaction:{hover:true, tooltipDelay:80, keyboard:true}, nodes:{shape:"dot", borderWidth:2}});
   network.once("afterDrawing", () => network.fit());
 }
-document.querySelector("#case .row").addEventListener("click", async e => {
-  const b = e.target.closest("button[data-a]"); if(!b || !selected) return;
-  const id = selected.id, action = b.dataset.a;
-  if(!demo){ try{ await api(`/alerts/${id}/action`, {method:"POST", body: JSON.stringify({action, note: $("cNote").value})}); }catch(err){ toast(err.message); return; } }
-  else { const s = SAMPLE_ALERTS.find(x=>x.id===id); if(s) s.status = action; }
-  toast({confirm:"Confirmed as laundering", escalate:"Escalated to senior investigator", dismiss:"Dismissed as false alarm"}[action]);
-  const i = alerts.findIndex(x=>x.id===id); const next = alerts[i+1] || alerts[i-1];
-  selected = null; $("case").style.display = "none"; $("ph").style.display = "block";
+$("cActions").addEventListener("click", async e => {
+  const b = e.target.closest("button[data-a]"); if(!b || !selected || mode !== "live") return;
+  const id = selected.id, action = b.dataset.a, analyst = $("analyst").value.trim() || "analyst";
+  try{ await api(`/alerts/${id}/action`, {method:"POST", body: JSON.stringify({action, note: $("cNote").value, analyst})}); }
+  catch(err){ toast(err.message); return; }
+  toast({confirm:"Recorded: confirmed as laundering (simulated, audit-logged)", escalate:"Recorded: escalated (simulated, audit-logged)", dismiss:"Recorded: dismissed as false alarm (audit-logged)"}[action]);
   await loadAlerts();
-  if(next && alerts.some(x=>x.id===next.id)) openAlert(next.id);
+  openAlert(id);       // stays on the case so the new audit entry is visible (fetched by id if filtered out)
 });
 
 // ---------- score a payment ----------
@@ -430,53 +503,66 @@ $("exNormal").onclick = () => { $("fSrc").value="0118_8000C6C40"; $("fDst").valu
 $("exHub").onclick = () => { $("fSrc").value="070_1004286A8"; $("fDst").value="0021615_8036AE1C0"; $("fAmt").value="8400.00"; $("fFmt").value="ACH"; $("fCur").value=$("fCur2").value="US Dollar"; };
 $("scoreBtn").onclick = async () => {
   const body = {src:$("fSrc").value.trim(), dst:$("fDst").value.trim(), amount:Number($("fAmt").value), fmt:$("fFmt").value,
-    currency:$("fCur").value, cur_recv:$("fCur2").value, ts:$("fTs").value.trim(), txn_id:"manual-" + Date.now()};
+    currency:$("fCur").value, cur_recv:$("fCur2").value, txn_id:"manual-" + Date.now()};
+  const ts = $("fTs").value.trim(); if(ts) body.ts = ts;
   if(!body.src || !body.dst || !(body.amount > 0)){ toast("Fill in both accounts and an amount above 0"); return; }
   $("scoreBtn").disabled = true;
   try{
     const r = await api("/score", {method:"POST", body: JSON.stringify(body)});
-    const col = r.decision==="HOLD"?"var(--red)":r.decision==="REVIEW"?"var(--orange)":"var(--green)";
+    const col = DEC_COLOR[r.decision] || "var(--text)";
     $("scoreOut").innerHTML = `<div class="result" style="border-color:${col}">
-      <div class="r1"><div class="big" style="color:${col}">${r.decision}</div><div style="text-align:right"><div class="big" style="font-size:22px">${Math.round(r.score*100)}<span class="meta">/100 risk</span></div><div class="meta">decided in ${r.latency_ms} ms</div></div></div>
-      <div class="acc" style="margin-top:8px">${esc(r.src)} → ${esc(r.dst)} · ${money(r.amount)} · ${esc(r.fmt)}</div>
-      ${r.reasons.length ? `<ul class="reasons" style="font-size:13.5px">${r.reasons.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>` : `<p class="meta">No warning signs. The payment can go through.</p>`}
-      ${r.alert_id ? `<button class="btn ghost" style="margin-top:10px" onclick="show('investigate');openAlert(${r.alert_id})">Open case →</button>` : ""}</div>`;
-  }catch(e){ toast(e.message); }
-  $("scoreBtn").disabled = demo;
+      <div class="r1"><div class="big" style="color:${col}">${esc(r.decision)}</div><div style="text-align:right"><div class="big" style="font-size:22px">${Math.round(r.score*100)}<span class="meta">/100 risk</span></div><div class="meta">decided in ${esc(r.latency_ms)} ms (server-side)</div></div></div>
+      <div class="meta" style="margin-top:6px">${esc(r.recommendation)} <span class="sim">SIMULATED</span></div>
+      <div class="acc" style="margin-top:8px">${esc(r.src)} → ${esc(r.dst)} · ${money(r.amount)} · ${esc(r.fmt)} · ${esc(r.ts)}</div>
+      ${r.reasons.length ? `<ul class="reasons" style="font-size:13.5px">${r.reasons.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>` : `<p class="meta">No warning signs.</p>`}
+      ${r.alert_id ? `<button class="btn ghost" style="margin-top:10px" id="openCase">Open case →</button>` : ""}</div>`;
+    if(r.alert_id) $("openCase").onclick = () => { show("investigate"); openAlert(r.alert_id); };
+  }catch(e){ $("scoreOut").innerHTML = `<div class="err-inline">Not scored: ${esc(e.message)}</div>`; }
+  $("scoreBtn").disabled = mode !== "live";
 };
 
 // ---------- results ----------
 async function loadMetrics(){
-  let m; try{ m = demo ? SAMPLE_METRICS : await api("/metrics"); }catch(e){ m = SAMPLE_METRICS; }
-  const name = s => s.replace(/^[ABC]:\s*/,""), best = m.reduce((a,b)=> b.pr_auc>a.pr_auc?b:a, m[0]);
+  let m;
+  if(mode === "demo") m = SAMPLE_METRICS;
+  else { try{ m = await api("/metrics"); }catch(e){ $("mTable").innerHTML = `<tr><td colspan="6" class="err-inline">Could not load eval/metrics.json from the API: ${esc(e.message)}</td></tr>`; $("barRecall").innerHTML = $("barAuc").innerHTML = $("mNote").innerHTML = ""; return; } }
+  if(!Array.isArray(m)) m = m.models || [];
+  const best = m.reduce((a,b)=> b.pr_auc>a.pr_auc?b:a, m[0]);
   const bars = (key, fmt, max) => m.map(r => `<div class="b"><div class="bl"><span>${esc(r.model)}</span><b style="color:var(--text)">${fmt(r[key])}</b></div>
     <div class="bt"><i style="width:${Math.max(r[key]/max*100,0.8)}%;background:${r===best?"var(--blue)":"#3a4663"}"></i></div></div>`).join("");
   $("barRecall").innerHTML = bars("recall", v => (v*100).toFixed(1)+"%", Math.max(...m.map(r=>r.recall)));
   $("barAuc").innerHTML = bars("pr_auc", v => v.toFixed(4), Math.max(...m.map(r=>r.pr_auc)));
   $("mTable").innerHTML = m.map(r => `<tr class="${r===best?"best":""}"><td>${esc(r.model)}</td><td>${r.pr_auc.toFixed(4)}</td><td>${(r.recall*100).toFixed(1)}%</td><td>${(r.precision*100).toFixed(1)}%</td><td>${r.review_pct.toFixed(2)}%</td><td>${r.fp_per_1000.toFixed(1)}</td></tr>`).join("");
   const a = m.find(r=>r.model.startsWith("A")), c = m.find(r=>r.model.startsWith("C"));
-  if(a && c) $("mNote").innerHTML = `MuleTrace ranks risk <b>${Math.round(c.pr_auc/a.pr_auc)}× better</b> than a normal one-payment-at-a-time model and catches <b>${(c.recall/a.recall).toFixed(1)}×</b> more laundering while reviewing fewer payments.
-    Laundering is very rare (about 1 in 1,000 payments), so about 1 in ${Math.round(1/c.precision)} flagged payments is real laundering. That is why a human investigator makes the final call.`;
+  if(a && c) $("mNote").innerHTML = (mode==="demo" ? "<b>Demo data.</b> " : "") + `MuleTrace ranks risk <b>${Math.round(c.pr_auc/a.pr_auc)}× better</b> than a one-payment-at-a-time model and catches <b>${(c.recall/a.recall).toFixed(1)}×</b> more laundering while reviewing fewer payments.
+    Laundering is very rare (396 of the 400,000 test payments), so about 1 in ${Math.round(1/c.precision)} flagged payments is real laundering. That is why a human investigator makes the final call.`;
 }
 
 // ---------- system ----------
 async function loadSystem(){
-  let s; try{ s = demo ? SAMPLE_SYSTEM : await api("/system"); }catch(e){ s = SAMPLE_SYSTEM; }
+  let s;
+  if(mode === "demo") s = SAMPLE_SYSTEM;
+  else { try{ s = await api("/system"); }catch(e){ $("sysKv").innerHTML = `<div class="err-inline">Could not read /system from the API: ${esc(e.message)}. No platform facts are shown without a live reading.</div>`; return; } }
   const card = (l, v, h) => `<div class="stat"><div class="l">${l}</div><div class="v" style="font-size:22px">${v}</div><div class="h">${h}</div></div>`;
-  $("sysKv").innerHTML = [
+  $("sysKv").innerHTML = (mode==="demo" ? '<div class="banner demo" style="grid-column:1/-1">Recorded /system reading (samples/system.json), not live.</div>' : "") + [
     card("Machine", esc(MACHINES[s.machine_type] || ("Type " + (s.machine_type||"?"))), "machine type " + esc(s.machine_type||"?")),
     card("Architecture", esc(s.arch), s.arch==="s390x" ? "IBM Z instruction set · " + esc(s.byteorder) + "-endian" : "not IBM Z"),
-    card("On-chip AI accelerator", s.nnpa ? '<span style="color:var(--green)">Available</span>' : "Not found", s.nnpa ? "Telum II (NNPA) detected. Current model runs on CPU" : "NNPA not reported"),
-    card("Data leaving the machine", '<span style="color:var(--green)">None</span>', "all scoring happens on this server"),
-    card("Model", "XGBoost", (s.features||20) + " network + payment signals"),
+    card("On-chip AI accelerator", s.nnpa ? '<span style="color:var(--green)">Present</span>' : "Not found", s.nnpa ? "Telum II (NNPA) detected. Model C runs on CPU; NNPA not used" : "NNPA not reported"),
+    card("Outbound data", s.data_egress==="none" ? '<span style="color:var(--green)">None</span>' : esc(s.data_egress), "declared: the API makes no outbound calls"),
+    card("Model", "XGBoost", (s.features||20) + " network + payment signals · CPU inference"),
     card("Runtime", "Python " + esc(s.python), (s.cpus||"?") + " vCPUs · FastAPI")
   ].join("");
 }
-function updateIbmPill(){ api("/system").then(s => { $("ibm").textContent = "● " + (MACHINES[s.machine_type]||"IBM Z") + " · " + s.arch; }).catch(()=>{ $("ibm").textContent = "● IBM z17 · s390x"; }); }
+function updateIbmPill(){
+  if(mode === "demo"){ $("ibm").textContent = "platform: recorded sample"; $("ibm").className = "pill demo"; return; }
+  api("/system").then(s => { $("ibm").textContent = "● " + (MACHINES[s.machine_type] || "machine " + (s.machine_type||"?")) + " · " + s.arch; $("ibm").className = "pill" + (s.arch==="s390x" ? " ibm" : ""); })
+    .catch(() => { $("ibm").textContent = "platform: unknown (API offline)"; $("ibm").className = "pill demo"; });
+}
 
 // ---------- start ----------
+if(DEMO_REQUESTED) setMode("demo");
 tick(); updateIbmPill();
-setInterval(() => { tick(); if(page==="investigate" && !demo && segVal("fStatus")==="open") refreshListQuietly(); }, 2000);
+setInterval(() => { tick(); if(page==="investigate" && mode==="live" && segVal("fStatus")==="open") refreshListQuietly(); }, 2000);
 let lastListLoad = 0;
 function refreshListQuietly(){ if(Date.now() - lastListLoad < 5000) return; lastListLoad = Date.now(); loadAlerts(); }
 { const h = (location.hash || "").slice(1); show(["monitor","investigate","score","results","system"].includes(h) ? h : "monitor"); }
