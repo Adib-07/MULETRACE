@@ -11,3 +11,4 @@ models/
 venv/
 .pytest_cache/
 data/*.zip
+autostart.log
