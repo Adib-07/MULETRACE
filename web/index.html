@@ -41,6 +41,9 @@ button,input,select,textarea{font:inherit;color:inherit}
 .pill.live{color:var(--pass);border-color:var(--pass)}.pill.warn{color:var(--flag);border-color:var(--flag)}.pill.bad{color:var(--hold);border-color:var(--hold)}
 .who{display:flex;align-items:center;gap:var(--s2);font-size:var(--f-sm);color:var(--mute)}
 .who input{width:130px;padding:4px 8px}
+.tokmenu{position:relative}.tokmenu summary{cursor:pointer;list-style:none}.tokmenu summary::-webkit-details-marker{display:none}
+.tokpop{position:absolute;right:0;top:calc(100% + 6px);z-index:30;display:flex;flex-direction:column;gap:6px;padding:8px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;min-width:160px}
+.banner code{background:rgba(0,0,0,.25);padding:1px 6px;border-radius:4px}
 /* shell */
 .shell{display:grid;grid-template-columns:190px minmax(0,1fr);min-height:calc(100vh - 47px)}
 nav.side{border-right:1px solid var(--line);padding:var(--s3) var(--s2);display:flex;flex-direction:column;gap:2px;background:var(--panel)}
@@ -193,6 +196,8 @@ tr.best td{font-weight:700;background:rgba(110,160,255,.08)}
   <span id="mode" class="pill" role="status">connecting…</span>
   <span id="machine" class="pill">machine: –</span>
   <label class="who" for="analyst" style="margin:0">Analyst <input id="analyst" maxlength="64" autocomplete="off" value="analyst"></label>
+  <details class="tokmenu" id="tokMenu"><summary class="pill" aria-label="API token menu">🔑 Token</summary>
+    <div class="tokpop"><button class="btn ghost" id="tokChange">Change token</button><button class="btn ghost" id="tokForget">Forget token</button></div></details>
 </header>
 <div class="shell">
 <nav class="side" id="nav" aria-label="Sections">
@@ -375,11 +380,18 @@ tr.best td{font-weight:700;background:rgba(110,160,255,.08)}
 // ---------- config ----------
 const qs = new URLSearchParams(location.search);
 const API = qs.get("api") || (location.protocol.startsWith("http") ? "" : "http://localhost:8000");
+// Accept what people actually paste: whitespace/newlines, quotes, `export `, or the whole `MULETRACE_TOKEN=...` env line.
+function normToken(v){
+  v = String(v || "").trim().replace(/^export\s+/, "").replace(/^MULETRACE_TOKEN\s*=\s*/, "").trim();
+  return v.replace(/^(['"])(.*)\1$/, "$2").trim();
+}
 let TOKEN = "";
 try{
-  if(qs.get("token")){ sessionStorage.setItem("mtToken", qs.get("token")); qs.delete("token"); history.replaceState(null, "", location.pathname + (qs.toString() ? "?" + qs : "") + location.hash); }
-  TOKEN = sessionStorage.getItem("mtToken") || "";
-}catch(e){ TOKEN = qs.get("token") || ""; }
+  if(qs.get("token")){ sessionStorage.setItem("mtToken", normToken(qs.get("token"))); qs.delete("token"); history.replaceState(null, "", location.pathname + (qs.toString() ? "?" + qs : "") + location.hash); }
+  TOKEN = normToken(sessionStorage.getItem("mtToken"));
+}catch(e){ TOKEN = normToken(qs.get("token")); }
+let authBlocked = false;      // a protected call returned 401: protected polling pauses until a valid token is saved
+const PUBLIC = /^\/(stats|system|evidence|health|metrics)(\b|\?|$)/;
 
 // Recorded sample (samples/*.json: 3,000-payment replay on the LinuxONE VM with the FIRST, pre-hardening model).
 // Demo mode only: opt-in, labelled, no metrics shown (those come from eval/ on the live server).
@@ -409,6 +421,9 @@ let mode = "connecting", page = "live";      // live | offline | demo | auth
 function toast(msg){ const t=$("toast"); t.textContent=msg; show_(t, true); clearTimeout(t._h); t._h=setTimeout(()=>show_(t,false),3200); }
 
 async function api(path, opts={}){
+  if(authBlocked && !PUBLIC.test(path)){       // do not hammer the server with requests we know will be refused
+    const e = new Error("API token required"); e.http = 401; e.auth = true; throw e;
+  }
   const ctl = new AbortController(); const t = setTimeout(()=>ctl.abort(), 10000);
   const headers = {"Content-Type":"application/json"}; if(TOKEN) headers["X-MuleTrace-Token"] = TOKEN;
   try{
@@ -418,7 +433,7 @@ async function api(path, opts={}){
       const e = new Error(typeof body.detail === "string" ? body.detail
         : Array.isArray(body.detail) ? body.detail.map(d => (d.loc||[]).slice(-1)[0] + ": " + d.msg).join("; ") : "Error " + r.status);
       e.http = r.status; e.fields = Array.isArray(body.detail) ? body.detail : null;
-      if(r.status === 401) authNeeded();
+      if(r.status === 401){ e.auth = true; authBlocked = true; authNeeded(); }
       throw e;
     }
     return body;
@@ -427,10 +442,36 @@ async function api(path, opts={}){
 async function busy(btn, fn){ btn.disabled = true; btn.setAttribute("aria-busy","true"); try{ return await fn(); } finally { btn.removeAttribute("aria-busy"); btn.disabled = mode !== "live"; } }
 
 function banner(kind, html){ const b = $("banner"); if(!kind){ show_(b,false); b.innerHTML=""; return; } b.className = "banner " + kind; b.innerHTML = html; }
-function authNeeded(){
-  if($("tokIn")) return;                          // prompt already shown: do not wipe what is being typed
-  banner("warn", `This server requires an API token for actions. <label for="tokIn" class="sr">API token</label><input id="tokIn" type="password" placeholder="paste token"> <button class="btn" id="tokBtn">Save token</button>`);
-  $("tokBtn").onclick = () => { TOKEN = $("tokIn").value.trim(); try{ sessionStorage.setItem("mtToken", TOKEN); }catch(e){} banner(null); toast("Token saved for this tab"); };
+const TOKEN_HELP = "Get it on the VM: <code class=\"mono\">cut -d= -f2 ~/.muletrace.env</code>";
+function authNeeded(msg){
+  if($("tokIn")){ if(msg) $("tokMsg").innerHTML = msg; return; }      // shown once; never wipe what is being typed
+  banner("warn", `<span id="tokMsg">${msg || "This server needs an API token to show account data and record decisions."}</span>
+    <label for="tokIn" class="sr">API token</label><input id="tokIn" type="password" autocomplete="off" placeholder="paste token">
+    <button class="btn" id="tokBtn">Use token</button><span class="meta" style="flex-basis:100%">${TOKEN_HELP}</span>`);
+  $("tokBtn").onclick = saveToken;
+  $("tokIn").addEventListener("keydown", e => { if(e.key === "Enter"){ e.preventDefault(); saveToken(); } });
+}
+async function saveToken(){       // validate before storing: a rejected token is never kept
+  const cand = normToken($("tokIn").value), btn = $("tokBtn");
+  if(!cand){ $("tokMsg").textContent = "Paste the token first."; return; }
+  btn.disabled = true;
+  try{
+    const r = await fetch(API + "/alerts?limit=1", {headers: {"X-MuleTrace-Token": cand}});
+    if(r.status === 401){ $("tokMsg").innerHTML = "<b>Token rejected — it may have been rotated.</b>"; $("tokIn").select(); return; }
+    if(!r.ok){ $("tokMsg").textContent = "Could not check the token (HTTP " + r.status + "). Try again."; return; }
+    TOKEN = cand; try{ sessionStorage.setItem("mtToken", TOKEN); }catch(e){}
+    authBlocked = false; banner(null); toast("Token accepted"); reloadAfterAuth();
+  }catch(e){ $("tokMsg").textContent = "Could not reach the server to check the token."; }
+  finally{ if($("tokBtn")) btn.disabled = false; }
+}
+function reloadAfterAuth(){       // refresh whatever is on screen, without a page reload
+  tick();
+  if(page === "cases") loadAlerts().then(() => { if(selected) openAlert(selected.id); });
+}
+function forgetToken(){
+  TOKEN = ""; try{ sessionStorage.removeItem("mtToken"); }catch(e){}
+  authBlocked = true; alerts = []; if(page === "cases") loadAlerts();
+  banner(null); authNeeded("Token forgotten for this tab. Paste a token to see account data.");
 }
 function setMode(m, detail){
   mode = m;
@@ -600,7 +641,10 @@ async function loadAlerts(){
     if(so === "time") alerts = [...alerts].sort((a,b) => b.ts - a.ts);
   } else {
     try{ alerts = await api(`/alerts?limit=200&status=${encodeURIComponent(st)}&decision=${encodeURIComponent(d)}&sort=${so}`); }
-    catch(e){ listRole(false); $("list").innerHTML = `<div class="banner err" style="margin:var(--s2)">Could not load cases: ${esc(e.message)} <button class="btn ghost" id="lRetry">Retry</button></div>`; $("lRetry").onclick = loadAlerts; if(!e.http) setMode("offline"); return; }
+    catch(e){
+      listRole(false);
+      if(e.auth){ $("list").innerHTML = `<div class="empty">Cases contain account data, so an API token is needed.<br><button class="btn" id="lTok" style="margin-top:10px">Enter token</button></div>`; $("lTok").onclick = () => { authNeeded(); $("tokIn").focus(); }; return; }
+      $("list").innerHTML = `<div class="banner err" style="margin:var(--s2)">Could not load cases: ${esc(e.message)} <button class="btn ghost" id="lRetry">Retry</button></div>`; $("lRetry").onclick = loadAlerts; if(!e.http) setMode("offline"); return; }
   }
   renderList();
 }
@@ -1022,12 +1066,15 @@ document.addEventListener("keydown", e => {
 addEventListener("resize", tourPlace);
 try{ if(sessionStorage.getItem("mtTour")) $("ovTour").textContent = "Replay the 60-second tour"; }catch(e){}
 
+$("tokChange").onclick = () => { $("tokMenu").open = false; banner(null); authNeeded("Paste the new token."); $("tokIn").focus(); };
+$("tokForget").onclick = () => { $("tokMenu").open = false; forgetToken(); toast("Token forgotten for this tab"); };
+
 // ---------- start ----------
 if(qs.get("demo") === "1") setMode("demo");
 tick();
 setInterval(() => { tick(); if(page==="cases" && mode==="live" && segVal("fStatus")==="open") refreshListQuietly(); }, 2000);
 let lastListLoad = 0;
-function refreshListQuietly(){ if(Date.now() - lastListLoad < 5000) return; lastListLoad = Date.now(); loadAlerts(); }
+function refreshListQuietly(){ if(authBlocked || Date.now() - lastListLoad < 5000) return; lastListLoad = Date.now(); loadAlerts(); }
 { const h = (location.hash || "").slice(1); show(PAGES.includes(h) ? h : (h==="investigate" ? "cases" : "overview")); }
 </script>
 </body>

@@ -27,7 +27,11 @@ def _path(env, default):
 MODELS, DATA, EVAL, WEB = (_path("MULETRACE_MODELS", "models"), _path("MULETRACE_DATA", "data"),
                            _path("MULETRACE_EVAL", "eval"), _path("MULETRACE_WEB", "web"))
 DB_PATH = _path("MULETRACE_DB", "alerts.db")
-TOKEN = os.environ.get("MULETRACE_TOKEN", "")
+def load_token(raw):
+    """Token from the environment, tolerant of stray whitespace/newlines (e.g. from an env file)."""
+    return (raw or "").strip()
+
+TOKEN = load_token(os.environ.get("MULETRACE_TOKEN"))
 CORS = [o.strip() for o in os.environ.get("MULETRACE_CORS", "").split(",") if o.strip()]
 AHEAD_MIN = 60                      # reject payments more than this many minutes ahead of the stream
 
