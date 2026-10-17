@@ -1,5 +1,26 @@
 # MuleTrace final readiness (2026-10-18)
 
+## Update: auth blocker fix + identity (latest pass)
+
+- **Root cause of "Could not load cases: missing or wrong X-MuleTrace-Token header"** (reproduced in a browser against the VM; the server and env file were correct):
+  - Save stored any value and closed the banner, so a wrong or rotated token looked accepted.
+  - After a correct token, Cases kept its error until the next 5 s poll.
+  - Pasting the env line (`MULETRACE_TOKEN=…`) was stored verbatim.
+  - Polling kept calling protected endpoints after a 401.
+- **Fixes:** pasted tokens are normalised; a token is validated with a protected GET before storing; "Token rejected — it may have been rotated" (nothing stored); data reloads in place; protected polling pauses until a valid token; header Token menu (Change / Forget); server strips whitespace; `demo_start.sh` writes plain `KEY=value` and prints the retrieval command, never the token.
+- **Identity:** original MuleTrace monogram (an M traced through linked account nodes, single accent `#2f66e0`), favicon and 32/180 px icons, used in the header, Overview, tour and README. The logo passes non-text contrast (≥ 3.46:1) on dark and white.
+
+| Check (this pass) | Result | Command |
+|---|---|---|
+| pytest on the VM | PASS: 52 passed | `python -m pytest -q tests` |
+| Auth e2e, real server: (a) no token → one banner, polling paused; (b) wrong → rejected, not stored; (c) env-line paste → Cases loads without reload; (d) refresh; (e) all pages; (f) 5 protected reads + 4 writes 401 without / 200 with, 4 public 200; token out of URL; Forget/Change | PASS: 8 checks | `tests/e2e/e2e_auth.py` |
+| Core workflow e2e, real server (incl. hover pause, Best ring, node expansion 21→23, Confirm + audit, NNPA path in Trust panel, restart persistence, measured egress on Overview) | PASS: 15 checks, 0 console errors | `tests/e2e/e2e_real.py` |
+| Lighthouse accessibility | PASS: 100 on all six pages | `npx lighthouse@12.2.1` |
+| Contrast | PASS: 33/33 (text ≥ 4.5, logo ≥ 3) | `scripts/contrast_check.py` |
+| README/UI numbers vs eval | PASS | `scripts/readme_results.py --check` |
+| Token in server log / tree / history | PASS: 0 / 0 / 0 (production and test tokens checked) | `grep -cF` (values never printed) |
+
+
 Team Quorvex · IBM Z Datathon 2026 · Real-Time AI for Critical Decisions. Fallback tag `v1-demo`. `v2-submission` = Phases 0–5; **`v2.1-submission` = this state, including Phase 6 (NNPA)**.
 
 ## Verdict: CONDITIONALLY READY
@@ -32,7 +53,7 @@ Conditions **still missing**, all of them human tasks:
 
 | Check | Result | Command |
 |---|---|---|
-| Unit/API/pipeline/consistency/README-number tests on the VM | PASS: 43 passed | `python -m pytest -q tests` |
+| Unit/API/pipeline/consistency/README-number tests on the VM | PASS: 52 passed (latest pass) | `python -m pytest -q tests` |
 | Real-server e2e (real model, 2M payments): token out of URL; Overview live; start; tour; Best ring; node expansion (21→23 accounts); explanations order; keyboard Confirm + audit; no-token view; keyboard nav; Evidence/System; back/forward; 390px; restart → status and audit identical; 0 console errors | PASS: 14 checks | `MULETRACE_RESTART_CMD=… python tests/e2e/e2e_real.py` |
 | Reads without token → 401, with → 200 (`/alerts`, `/alerts/1`, `/alerts/1/audit`, `/graph/x`, `/recent`); public endpoints → 200 | PASS | `curl` on the VM |
 | Writes without token → 401; foreign-origin CORS preflight refused (405); 0 allow-origin headers | PASS | `curl` |
@@ -79,11 +100,11 @@ Conditions **still missing**, all of them human tasks:
 | IBM Z relevance | 15 | 7 | 11 | egress measured; big-endian test; **NNPA scoring path measured with proof** (not faster, not the live model) |
 | E2E functionality | 10 | 9 | 10 | 14-check real-server e2e incl. restart persistence |
 | Model evidence | 10 | 7 | 8 | detection delay; conservative headline everywhere. Still one split |
-| UX & explainability | 10 | 8 | 9 | Lighthouse 100 on all pages; network signals before context |
-| Security/privacy/oversight | 8 | 5 | 7 | token on account-data reads; egress measured. Shared token; key filename in history |
+| UX & explainability | 10 | 8 | 10 | Lighthouse 100 on all pages; network signals before context; token flow fixed (validated, in-place reload); original logo |
+| Security/privacy/oversight | 8 | 5 | 7 | token on account-data reads, validated in the UI, never stored when rejected; egress measured. Shared token; key filename in history |
 | Reliability/testing/deploy | 7 | 5 | 6 | restart persistence proven; reboot autostart not applied |
 | Demo/reproducibility | 5 | 4 | 5 | scripts, DEMO.md, numbers regenerated from files |
-| **Total** | 100 | **70** | **83** | |
+| **Total** | 100 | **70** | **84** | |
 
 ## Remaining defects and risks
 
