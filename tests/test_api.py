@@ -176,3 +176,9 @@ def test_system_cites_egress_measurement(client, app, tmp_path, monkeypatch):
 def test_default_scorer_is_model_c_on_cpu(client):
     s = client.get("/system").json()
     assert s["scorer"] == "c" and s["inference"].startswith("CPU") and "XGBoost" in s["model"]
+
+
+@pytest.mark.parametrize("path,ctype", [("/brand/favicon.svg", "image/svg+xml"), ("/brand/icon-32.png", "image/png"), ("/brand/icon-180.png", "image/png")])
+def test_brand_assets_served(client, path, ctype):
+    r = client.get(path)
+    assert r.status_code == 200 and r.headers["content-type"].startswith(ctype)

@@ -20,9 +20,13 @@ PAIRS = [(t, b) for t in ("text", "mute", "faint", "pass", "flag", "hold", "blue
     ("pass", "pass-bg"), ("white", "hold-bg"), ("flag-ink", "flag"), ("white", "blue-strong"),
     ("white", "confirm"), ("white", "escalate"), ("white", "dismiss"), ("focus", "bg"), ("focus", "panel")]
 rows = [{"fg": f, "bg": b, "fg_hex": tok[f], "bg_hex": tok[b], "ratio": ratio(f, b), "aa_normal_text": ratio(f, b) >= 4.5} for f, b in PAIRS]
-json.dump({"standard": "WCAG 2.x contrast ratio, AA normal text >= 4.5", "pairs": rows}, open("eval/contrast.json", "w"), indent=1)
+GRAPHICS = [("accent", "bg"), ("accent", "panel"), ("accent", "white")]      # logo/brand mark: WCAG 1.4.11 non-text >= 3:1
+graphics = [{"fg": f, "bg": b, "ratio": ratio(f, b), "aa_non_text": ratio(f, b) >= 3.0} for f, b in GRAPHICS]
+json.dump({"standard": "WCAG 2.x contrast ratio, AA normal text >= 4.5; non-text (logo) >= 3", "pairs": rows, "graphics": graphics}, open("eval/contrast.json", "w"), indent=1)
 for r in rows:
     print(f"{r['fg']:>10} on {r['bg']:<11} {r['fg_hex']} / {r['bg_hex']}  {r['ratio']:>5}:1  {'AA' if r['aa_normal_text'] else 'FAIL'}")
-fails = [r for r in rows if not r["aa_normal_text"]]
-print(f"{len(rows) - len(fails)}/{len(rows)} pairs pass AA (4.5:1); min {min(r['ratio'] for r in rows)}:1")
+for g in graphics:
+    print(f"{g['fg']:>10} on {g['bg']:<11} (graphic) {g['ratio']:>5}:1  {'AA' if g['aa_non_text'] else 'FAIL'}")
+fails = [r for r in rows if not r["aa_normal_text"]] + [g for g in graphics if not g["aa_non_text"]]
+print(f"{len(rows) + len(graphics) - len(fails)}/{len(rows) + len(graphics)} pairs pass (text 4.5:1, logo 3:1); min text {min(r['ratio'] for r in rows)}:1, min logo {min(g['ratio'] for g in graphics)}:1")
 sys.exit(1 if fails else 0)

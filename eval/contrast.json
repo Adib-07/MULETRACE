@@ -1,5 +1,5 @@
 {
- "standard": "WCAG 2.x contrast ratio, AA normal text >= 4.5",
+ "standard": "WCAG 2.x contrast ratio, AA normal text >= 4.5; non-text (logo) >= 3",
  "pairs": [
   {
    "fg": "text",
@@ -240,6 +240,26 @@
    "bg_hex": "#111827",
    "ratio": 9.84,
    "aa_normal_text": true
+  }
+ ],
+ "graphics": [
+  {
+   "fg": "accent",
+   "bg": "bg",
+   "ratio": 3.77,
+   "aa_non_text": true
+  },
+  {
+   "fg": "accent",
+   "bg": "panel",
+   "ratio": 3.46,
+   "aa_non_text": true
+  },
+  {
+   "fg": "accent",
+   "bg": "white",
+   "ratio": 5.12,
+   "aa_non_text": true
   }
  ]
 }

@@ -1,3 +1,5 @@
+<img src="web/brand/logo.svg" alt="MuleTrace logo" width="72">
+
 # MuleTrace
 
 **Real-time money-mule ring detection on IBM LinuxONE. It scores each payment against the network it belongs to, not just the payment itself.**

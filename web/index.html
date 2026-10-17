@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>MuleTrace Console</title>
+<link rel="icon" type="image/svg+xml" href="brand/favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="brand/icon-32.png">
+<link rel="apple-touch-icon" href="brand/icon-180.png">
 <script src="vendor/vis-network.min.js"></script>
 <script>window.vis || document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.9/standalone/umd/vis-network.min.js"><\/script>')</script>
 <style>
@@ -18,6 +21,7 @@
   --bg:#0a0e16;--panel:#111827;--panel2:#1a2335;--line:#2b3753;--text:#eef2f8;--mute:#a7b2c9;--faint:#8b97b1;
   --pass:#4ade80;--pass-bg:#12301f;--flag:#fbbf24;--flag-ink:#1f1500;--hold:#f87171;--hold-bg:#b91c1c;
   --blue:#78a6ff;--blue-strong:#2f66e0;--focus:#93c5fd;
+  --accent:#2f66e0;            /* brand accent = logo colour (web/brand/logo.svg); graphics contrast >= 3:1 on bg and white */
   /* 8px grid (4px half-step) */
   --s1:4px;--s2:8px;--s3:16px;--s4:24px;--s5:32px;--s6:48px;
   --r:12px;--r-sm:8px;
@@ -36,7 +40,8 @@ button,input,select,textarea{font:inherit;color:inherit}
 /* top bar */
 .top{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:var(--s3);flex-wrap:wrap;padding:var(--s2) var(--s4);background:var(--panel);border-bottom:1px solid var(--line)}
 .brand{display:flex;align-items:center;gap:var(--s2);font-weight:700;font-size:16px;margin-right:auto}
-.logo{width:26px;height:26px;border-radius:7px;background:linear-gradient(135deg,#b91c1c,#3b74f0);display:grid;place-items:center;font-size:13px}
+.logo{width:28px;height:28px;color:var(--accent);display:grid;place-items:center}.logo svg{width:100%;height:100%}
+.mark{color:var(--accent);display:inline-block;vertical-align:middle}.mark svg{width:100%;height:100%}
 .pill{font-size:var(--f-xs);padding:3px 10px;border-radius:999px;border:1px solid var(--line);color:var(--mute);white-space:nowrap}
 .pill.live{color:var(--pass);border-color:var(--pass)}.pill.warn{color:var(--flag);border-color:var(--flag)}.pill.bad{color:var(--hold);border-color:var(--hold)}
 .who{display:flex;align-items:center;gap:var(--s2);font-size:var(--f-sm);color:var(--mute)}
@@ -192,7 +197,7 @@ tr.best td{font-weight:700;background:rgba(110,160,255,.08)}
 </head>
 <body>
 <header class="top">
-  <div class="brand"><div class="logo" aria-hidden="true">⛓</div>MuleTrace</div>
+  <div class="brand"><div class="logo"><svg viewBox="0 0 32 32" aria-hidden="true" focusable="false"><path d="M6 25V8.5l10 10.5 10-10.5V25" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6" cy="25" r="2.9" fill="currentColor"/><circle cx="16" cy="19" r="2.9" fill="currentColor"/><circle cx="26" cy="25" r="2.9" fill="currentColor"/></svg></div>MuleTrace</div>
   <span id="mode" class="pill" role="status">connecting…</span>
   <span id="machine" class="pill">machine: –</span>
   <label class="who" for="analyst" style="margin:0">Analyst <input id="analyst" maxlength="64" autocomplete="off" value="analyst"></label>
@@ -214,6 +219,7 @@ tr.best td{font-weight:700;background:rgba(110,160,255,.08)}
 <!-- OVERVIEW -->
 <section class="page on" id="p-overview" aria-labelledby="h-ov">
   <div class="hero">
+    <div class="mark" style="width:56px;height:56px;margin-bottom:var(--s2)"><svg viewBox="0 0 32 32" aria-hidden="true" focusable="false"><path d="M6 25V8.5l10 10.5 10-10.5V25" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6" cy="25" r="2.9" fill="currentColor"/><circle cx="16" cy="19" r="2.9" fill="currentColor"/><circle cx="26" cy="25" r="2.9" fill="currentColor"/></svg></div>
     <h1 id="h-ov">Catch mule-account networks as the money moves</h1>
     <p>Stolen money is split across many accounts and passed on within minutes, so each payment looks normal on its own. MuleTrace scores every payment against the last hour of money flowing around it, explains why, and leaves the decision to an investigator.</p>
     <div class="row"><button class="btn lg" id="ovStart">▶ Start live investigation</button><button class="btn ghost lg" id="ovTour">Take the 60-second tour</button></div>
@@ -373,7 +379,7 @@ tr.best td{font-weight:700;background:rgba(110,160,255,.08)}
 </div>
 <div class="toast hidden" id="toast" role="status" aria-live="polite"></div>
 <div id="tourHole" class="tour-hole hidden"></div>
-<div id="tourTip" class="tour-tip hidden" role="dialog" aria-modal="false" aria-labelledby="tourTitle"><h2 id="tourTitle"></h2><p id="tourText"></p>
+<div id="tourTip" class="tour-tip hidden" role="dialog" aria-modal="false" aria-labelledby="tourTitle"><div class="row" style="gap:var(--s2);margin-bottom:var(--s1)"><span class="mark" style="width:20px;height:20px"><svg viewBox="0 0 32 32" aria-hidden="true" focusable="false"><path d="M6 25V8.5l10 10.5 10-10.5V25" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6" cy="25" r="2.9" fill="currentColor"/><circle cx="16" cy="19" r="2.9" fill="currentColor"/><circle cx="26" cy="25" r="2.9" fill="currentColor"/></svg></span><h2 id="tourTitle" style="margin:0"></h2></div><p id="tourText"></p>
   <div class="row" style="justify-content:space-between"><span class="meta" id="tourStep"></span><span class="row"><button class="btn ghost" id="tourSkip">Skip</button><button class="btn ghost" id="tourBack">Back</button><button class="btn" id="tourNext">Next</button></span></div></div>
 
 <script>
@@ -998,7 +1004,7 @@ async function loadOverview(){
     $("ovStrip").innerHTML = `<span><b>${esc(MACHINES[s.machine_type] || "machine type " + (s.machine_type || "?"))}</b> · type ${esc(s.machine_type || "?")}</span>
       <span><b>${esc(s.arch)}</b> · ${esc(s.byteorder)}-endian</span>
       <span>decision p50 <b>${L ? fx(L.inproc.all.p50,2) + " ms" : "not measured"}</b>${L ? " (eval/latency.json)" : ""}</span>
-      <span>outbound calls: <b>none</b> (declared)</span>
+      <span>${ev && ev.egress ? `egress <b>measured: ${ev.egress.non_loopback_connections.length} non-loopback connections</b>` : "outbound calls: <b>none</b> (declared, not measured)"}</span>
       <span>NNPA <b>${s.nnpa ? "present" : "not detected"}</b> · model runs on CPU</span>${headline(ev)}`;
     ovLoaded = true;
   }catch(e){ $("ovStrip").innerHTML = `<span style="color:var(--hold)">Could not read platform facts: ${esc(e.message)}</span> <button class="btn ghost" id="ovRetry">Retry</button>`; $("ovRetry").onclick = loadOverview; }

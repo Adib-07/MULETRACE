@@ -330,6 +330,8 @@ def console():
 
 if os.path.isdir(os.path.join(WEB, "vendor")):
     app.mount("/vendor", StaticFiles(directory=os.path.join(WEB, "vendor")), name="vendor")
+if os.path.isdir(os.path.join(WEB, "brand")):
+    app.mount("/brand", StaticFiles(directory=os.path.join(WEB, "brand")), name="brand")
 
 @app.get("/health")
 def health():
