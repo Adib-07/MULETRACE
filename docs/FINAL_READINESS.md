@@ -1,6 +1,6 @@
 # MuleTrace final readiness (2026-10-18)
 
-Team Quorvex · IBM Z Datathon 2026 · Real-Time AI for Critical Decisions. Fallback tag `v1-demo`; this state is tagged `v2-submission`.
+Team Quorvex · IBM Z Datathon 2026 · Real-Time AI for Critical Decisions. Fallback tag `v1-demo`. `v2-submission` = Phases 0–5; **`v2.1-submission` = this state, including Phase 6 (NNPA)**.
 
 ## Verdict: CONDITIONALLY READY
 
@@ -32,7 +32,7 @@ Conditions **still missing**, all of them human tasks:
 
 | Check | Result | Command |
 |---|---|---|
-| Unit/API/pipeline/consistency/README-number tests on the VM | PASS: 42 passed | `python -m pytest -q tests` |
+| Unit/API/pipeline/consistency/README-number tests on the VM | PASS: 43 passed | `python -m pytest -q tests` |
 | Real-server e2e (real model, 2M payments): token out of URL; Overview live; start; tour; Best ring; node expansion (21→23 accounts); explanations order; keyboard Confirm + audit; no-token view; keyboard nav; Evidence/System; back/forward; 390px; restart → status and audit identical; 0 console errors | PASS: 14 checks | `MULETRACE_RESTART_CMD=… python tests/e2e/e2e_real.py` |
 | Reads without token → 401, with → 200 (`/alerts`, `/alerts/1`, `/alerts/1/audit`, `/graph/x`, `/recent`); public endpoints → 200 | PASS | `curl` on the VM |
 | Writes without token → 401; foreign-origin CORS preflight refused (405); 0 allow-origin headers | PASS | `curl` |
@@ -44,6 +44,8 @@ Conditions **still missing**, all of them human tasks:
 | Deploy: `demo_reset.sh` → `/health` ok, `/system` s390x/9175/auth token | PASS | `bash scripts/demo_reset.sh` |
 | Listening sockets | PASS: only 127.0.0.1:8000 and SSH (plus the systemd DNS stub on loopback) | `ss -tlnp` |
 | Secret scan (tree + all history) | PASS for keys, IPs and tokens. **Open:** the key filename appears 4× in history (commit `1b2bf28`), 0× in the tree | `git log --all -p \| grep` |
+| Phase 6 NNPA path: Snap ML `zdnn_tensors` on Telum II with proof (library-reported format, `zdnn_is_nnpa_installed`, `zdnn_matmul_op` bound during predict) | PASS: measured | `bench/nnpa_snapml.py` → `eval/nnpa.json` |
+| Optional `MULETRACE_SCORER=c-nnpa` server on the VM: 3,000 replayed payments, 0 errors | PASS | uvicorn on 127.0.0.1:8002 (temporary) |
 | Reboot resilience | BLOCKED: awaiting approval to run `bash scripts/autostart.sh --apply`. App restart with `--keep-db` is tested | – |
 
 ## Measured metrics (from `eval/`)
@@ -64,6 +66,8 @@ Conditions **still missing**, all of them human tasks:
 | Decision latency in-process (20,000 payments) | p50 1.10 ms, p95 1.59 ms, p99 4.06 ms | `eval/latency.json` |
 | HTTP `/score` at 50 req/s for 30 s | server p50 1.35 ms, p99 4.35 ms; 1,500 requests, 0 errors | same |
 | Egress | 0 non-loopback connections | `eval/egress.json` |
+| NNPA path (Snap ML on zDNN) vs C | PR-AUC 0.2012 vs 0.2188; recall 49.0% vs 45.7% | `eval/nnpa.json` |
+| NNPA latency p50, batch 1 / 256 | 0.028 / 3.84 ms (Snap ML CPU 0.011 / 0.89; XGBoost CPU 0.123 / 1.66): **no NNPA speed-up** | same |
 
 ## Scorecard (strict judge, before → after)
 
@@ -72,14 +76,14 @@ Conditions **still missing**, all of them human tasks:
 | Problem fit | 10 | 8 | 9 | time-to-detect on IBM-labelled attempts |
 | Originality | 10 | 6 | 6 | unchanged |
 | Technical depth | 15 | 11 | 12 | detection-delay evaluation, egress tooling, number check |
-| IBM Z relevance | 15 | 7 | 9 | egress measured; big-endian round-trip test; Snap ML retry documented. NNPA still unused |
+| IBM Z relevance | 15 | 7 | 11 | egress measured; big-endian test; **NNPA scoring path measured with proof** (not faster, not the live model) |
 | E2E functionality | 10 | 9 | 10 | 14-check real-server e2e incl. restart persistence |
 | Model evidence | 10 | 7 | 8 | detection delay; conservative headline everywhere. Still one split |
 | UX & explainability | 10 | 8 | 9 | Lighthouse 100 on all pages; network signals before context |
 | Security/privacy/oversight | 8 | 5 | 7 | token on account-data reads; egress measured. Shared token; key filename in history |
 | Reliability/testing/deploy | 7 | 5 | 6 | restart persistence proven; reboot autostart not applied |
 | Demo/reproducibility | 5 | 4 | 5 | scripts, DEMO.md, numbers regenerated from files |
-| **Total** | 100 | **70** | **81** | |
+| **Total** | 100 | **70** | **83** | |
 
 ## Remaining defects and risks
 
@@ -89,7 +93,7 @@ Conditions **still missing**, all of them human tasks:
 - **Model evidence**: one time split, one seed. Precision is about 5%, so roughly 19 of 20 flags are false alarms. The standard-run numbers partly depend on within-minute file order.
 - **Detection delay** uses the standard model, covers only the 37 attempts that start in the test window (68 of 396 laundering rows), and has minute resolution.
 - **Scale**: tested at 50 req/s on 3 vCPUs, single process, in-memory state. Higher rates are not measured.
-- **NNPA**: present but not used. Snap ML could not import model C, and a retrained Snap ML model scored at chance level.
+- **NNPA**: measured as an optional scoring path, but slightly less accurate than C and not faster at batch 1/256. It relies on user-space `libzdnn` (`~/zdnn`, unpacked from Ubuntu's `libzdnn0` without sudo). Larger batches were not measured.
 - **Egress sampling** (0.2 s) could miss a connection shorter than the interval. The code has no outbound calls.
 
 ## Mocked / simulated
