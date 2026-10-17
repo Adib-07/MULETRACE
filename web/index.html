@@ -639,18 +639,23 @@ let alerts = [], selected = null, network = null;
 try{ $("analyst").value = localStorage.getItem("mtAnalyst") || "analyst"; }catch(e){}
 $("analyst").addEventListener("change", () => { try{ localStorage.setItem("mtAnalyst", $("analyst").value.trim()); }catch(e){} });
 segment("fStatus", loadAlerts); segment("fDec", loadAlerts); $("fSort").onchange = loadAlerts;
+let listSeq = 0;                 // only the newest request may update the list (filter clicks + background refresh can overlap)
 async function loadAlerts(){
-  const st = segVal("fStatus"), d = segVal("fDec"), so = $("fSort").value;
+  const st = segVal("fStatus"), d = segVal("fDec"), so = $("fSort").value, my = ++listSeq;
   if(!alerts.length){ listRole(false); $("list").innerHTML = '<div class="cb"><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>'; }
   if(mode === "demo"){
     alerts = SAMPLE_ALERTS.filter(a => (st==="all"||a.status===st) && (d==="all"||a.decision===d));
     if(so === "time") alerts = [...alerts].sort((a,b) => b.ts - a.ts);
   } else {
-    try{ alerts = await api(`/alerts?limit=200&status=${encodeURIComponent(st)}&decision=${encodeURIComponent(d)}&sort=${so}`); }
+    let rows;
+    try{ rows = await api(`/alerts?limit=200&status=${encodeURIComponent(st)}&decision=${encodeURIComponent(d)}&sort=${so}`); }
     catch(e){
+      if(my !== listSeq) return;
       listRole(false);
       if(e.auth){ $("list").innerHTML = `<div class="empty">Cases contain account data, so an API token is needed.<br><button class="btn" id="lTok" style="margin-top:10px">Enter token</button></div>`; $("lTok").onclick = () => { authNeeded(); $("tokIn").focus(); }; return; }
       $("list").innerHTML = `<div class="banner err" style="margin:var(--s2)">Could not load cases: ${esc(e.message)} <button class="btn ghost" id="lRetry">Retry</button></div>`; $("lRetry").onclick = loadAlerts; if(!e.http) setMode("offline"); return; }
+    if(my !== listSeq) return;     // a newer filter/sort request superseded this one
+    alerts = rows;
   }
   renderList();
 }

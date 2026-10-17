@@ -1,0 +1,4 @@
+# Test / tooling dependencies (not needed to run the service)
+pytest==7.4.4
+httpx==0.28.1
+playwright==1.64.0        # browser e2e (tests/e2e/*.py) and scripts/make_icons.py; then: python -m playwright install chromium

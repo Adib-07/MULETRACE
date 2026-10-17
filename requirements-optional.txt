@@ -1,0 +1,3 @@
+# Optional NNPA scoring path (MULETRACE_SCORER=c-nnpa), verified on the LinuxONE VM (s390x).
+# Also needs IBM zDNN: libzdnn0 1.0.1 (Ubuntu); see docs/LINUXONE.md for the no-sudo setup.
+snapml==1.17.2
