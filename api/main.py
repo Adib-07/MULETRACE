@@ -76,6 +76,20 @@ def pick(word):
             return float(v)
     raise SystemExit("meta.json has no " + word + " threshold: " + str(list(meta)))
 FLAG, HOLD = pick("flag"), pick("hold")
+SCORER = os.environ.get("MULETRACE_SCORER", "c").lower()       # "c" (XGBoost, default) or "c-nnpa" (Snap ML on Telum II)
+nnpa_model = None
+if SCORER == "c-nnpa":
+    import snapml                                               # needs SNAPML_ZDNN_LIB / libzdnn visible; see docs/LINUXONE.md
+    if "snapml.libsnapmllocal3_zdnn" not in sys.modules:
+        raise SystemExit("MULETRACE_SCORER=c-nnpa but Snap ML loaded its CPU-only build (libzdnn not found)")
+    nmeta = json.load(open(os.path.join(MODELS, "c_nnpa_meta.json")))
+    nnpa_model = snapml.BoostingMachineClassifier()
+    nnpa_model.import_model(os.path.join(MODELS, "c_nnpa.pmml"), input_type="pmml", tree_format="zdnn_tensors")
+    if nnpa_model.booster_.optimized_tree_format_ != "zdnn_tensors":
+        raise SystemExit("Snap ML did not place the C-nnpa model on the accelerator")
+    FEATS, FLAG, HOLD = nmeta["features"], nmeta["flag_threshold"], nmeta["hold_threshold"]
+elif SCORER != "c":
+    raise SystemExit("MULETRACE_SCORER must be 'c' or 'c-nnpa'")
 
 model = XGBClassifier()
 model.load_model(os.path.join(MODELS, "model_c.json"))
@@ -180,10 +194,12 @@ def score_payment(x: dict):
         if txn_id:
             scored_ids.add(txn_id)
         row = pd.DataFrame([[f[k] for k in FEATS]], columns=FEATS, dtype="float32")
-        p = float(model.predict_proba(row)[0, 1])
+        p = float(nnpa_model.predict_proba(row.to_numpy())[0, 1] if nnpa_model is not None else model.predict_proba(row)[0, 1])
     decision = "HOLD" if p >= HOLD else "FLAG" if p >= FLAG else "PASS"
     why, expl = [], []
-    if decision != "PASS":
+    if decision != "PASS" and nnpa_model is not None:
+        why = reasons(f) or ["Risk score " + str(round(p * 100)) + "/100 from the C-nnpa scorer (no per-signal explanation for this path)"]
+    elif decision != "PASS":
         # Per-decision attribution: XGBoost SHAP-style contributions (log-odds); the last column is the bias.
         contribs = booster.predict(xgb.DMatrix(row), pred_contribs=True)[0][:-1]
         expl = explain(f, contribs, FEATS)
@@ -332,8 +348,9 @@ def system():
     return {"arch": platform.machine(), "byteorder": sys.byteorder, "python": platform.python_version(),
             "nnpa": "nnpa" in cpu, "machine_type": typ, "cpus": os.cpu_count(), "data_egress": "none",
             "data_egress_basis": egress_basis(),
-            "inference": "CPU (XGBoost). NNPA is not used by this model.",
-            "model": "XGBoost (MuleTrace network model C)", "features": len(FEATS),
+            "inference": "CPU (XGBoost). NNPA is not used by this model." if nnpa_model is None else "NNPA via Snap ML zdnn_tensors (eval/nnpa.json)",
+            "model": "XGBoost (MuleTrace network model C)" if nnpa_model is None else "Snap ML boosted trees on Telum II NNPA (C-nnpa)",
+            "scorer": SCORER, "features": len(FEATS),
             "flag_threshold": round(FLAG, 4), "hold_threshold": round(HOLD, 4),
             "stream_time": fmt_min(last_t[0]) if last_t[0] else None,
             "auth": "token" if TOKEN else "none (bind to 127.0.0.1 and use an SSH tunnel)",
@@ -471,7 +488,7 @@ def metrics():
 EVIDENCE_FILES = {"metrics": "metrics.json", "report": "report.json", "metrics_shuf": "metrics_shuf.json",
                   "report_shuf": "report_shuf.json",
                   "latency": "latency.json", "environment": "environment.json",
-                  "detection_delay": "detection_delay.json", "egress": "egress.json"}
+                  "detection_delay": "detection_delay.json", "egress": "egress.json", "nnpa": "nnpa.json"}
 
 @app.get("/evidence")
 def evidence():

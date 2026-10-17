@@ -128,7 +128,7 @@ def test_evidence_reads_eval_files_and_marks_missing(client):
     ev = client.get("/evidence").json()
     assert ev["metrics"] and ev["report"] and "C: MuleTrace network model" in ev["report"]["models"]
     assert ev["latency"] is None                    # not measured in the fixture run -> null, never invented
-    assert ev["detection_delay"] is None and ev["egress"] is None
+    assert ev["detection_delay"] is None and ev["egress"] is None and ev["nnpa"] is None
 
 
 def test_alert_sort_and_latency_percentiles(client):
@@ -171,3 +171,8 @@ def test_system_cites_egress_measurement(client, app, tmp_path, monkeypatch):
     monkeypatch.setattr(app, "EVAL", str(tmp_path))
     basis = client.get("/system").json()["data_egress_basis"]
     assert basis.startswith("measured") and "0 non-loopback" in basis and "2000 payments" in basis
+
+
+def test_default_scorer_is_model_c_on_cpu(client):
+    s = client.get("/system").json()
+    assert s["scorer"] == "c" and s["inference"].startswith("CPU") and "XGBoost" in s["model"]

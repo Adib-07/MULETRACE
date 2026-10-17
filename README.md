@@ -98,10 +98,11 @@ Source: [`eval/latency.json`](eval/latency.json), [`eval/environment.json`](eval
 | … client round trip on the same machine | 2.42 ms | 3.36 ms | 5.71 ms |
 
 - **Data stays put, measured:** 0 non-loopback connections of the API process in 75 socket samples while scoring 2,000 payments ([`eval/egress.json`](eval/egress.json)).
+- **Telum II on-chip AI (NNPA), measured as an optional path:** IBM Snap ML boosted trees on the same 20 features, run as zDNN tensors. Proof of NNPA use: Snap ML reports `zdnn_tensors`, zDNN 1.0.1 reports NNPA installed, and 9 zDNN functions (incl. `zdnn_matmul_op`) are called during predict. PR-AUC 0.2012 vs model C 0.2188, so **model C (CPU) stays live**. Latency p50 at batch 1 / 256: NNPA 0.028 / 3.84 ms, Snap ML CPU 0.011 / 0.89 ms, XGBoost CPU 0.123 / 1.66 ms: **no NNPA speed-up at these batch sizes** ([`eval/nnpa.json`](eval/nnpa.json)).
 <!-- ibmz:end -->
-- **On-chip AI is present but not used yet.** `/system` reports `nnpa: true` (Telum II). **Model C runs on the CPU.** On this VM, IBM Snap ML 1.17.2 printed "Falling back to CPU-only mode. IBM Snap ML will not leverage NNPA". We do not claim NNPA acceleration.
+- **On-chip AI (NNPA):** measured as an optional scoring path, not the live model; see the NNPA row above and [docs/LINUXONE.md](docs/LINUXONE.md).
 - **Feature build:** 2,000,000 payments in 50 s (one pass), peak memory 2.3 GB.
-- Platform facts, s390x build notes and the Snap ML attempt (the model import fails; Snap ML runs CPU-only here): [docs/LINUXONE.md](docs/LINUXONE.md).
+- Platform facts, s390x build notes and the NNPA measurement: [docs/LINUXONE.md](docs/LINUXONE.md).
 
 ## API
 
@@ -197,7 +198,7 @@ samples/             Responses recorded from the first model (before hardening)
 - **Innovation & creativity:** each payment is scored against a 60-minute memory of the money moving around both accounts (fan-in, fast forwarding, 2- and 3-account loops), not in isolation. Every flag is explained by ring patterns plus the model's own per-signal contributions.
 - **Technical implementation & complexity:** past-only streaming features, a time-based 60/20/20 split, thresholds from validation only, an ablation (A / network-only / C), bootstrap CIs and a within-minute shuffle robustness run. On top of that: a FastAPI service with token auth, validation, an append-only audit log, 29 automated tests and a browser end-to-end test.
 - **Relevance & impact (AI for Good):** mule networks move scam victims' money within minutes. MuleTrace ranks and explains cases so investigators act faster. HOLD is a simulated recommendation, and a human decides.
-- **Why IBM Z / LinuxONE:** measured on our VM (s390x, machine type 9175, 3 vCPU, 7.8 GiB; [`eval/environment.json`](eval/environment.json)). Decision latency is p50 1.10 ms and p99 4.06 ms over 20,000 payments. HTTP at 50 req/s: 1,500 requests, 0 errors ([`eval/latency.json`](eval/latency.json)). The data never leaves the machine: egress measured with `bench/egress_check.sh` (0 non-loopback connections, [`eval/egress.json`](eval/egress.json)). The NNPA on-chip accelerator is present but **not used**: the model runs on CPU ([docs/LINUXONE.md](docs/LINUXONE.md)).
+- **Why IBM Z / LinuxONE:** measured on our VM (s390x, machine type 9175, 3 vCPU, 7.8 GiB; [`eval/environment.json`](eval/environment.json)). Decision latency is p50 1.10 ms and p99 4.06 ms over 20,000 payments. HTTP at 50 req/s: 1,500 requests, 0 errors ([`eval/latency.json`](eval/latency.json)). The data never leaves the machine: egress measured with `bench/egress_check.sh` (0 non-loopback connections, [`eval/egress.json`](eval/egress.json)). The live model runs on CPU. The NNPA on-chip accelerator is **measured** as an optional scoring path (Snap ML on zDNN, proven used). It is slightly less accurate and not faster at batch 1 or 256, so it is not the live model ([`eval/nnpa.json`](eval/nnpa.json), [docs/LINUXONE.md](docs/LINUXONE.md)).
 - **Scalability & feasibility:** honestly, we have tested only up to 50 payments/s on 3 vCPUs, single process, with in-memory state. Higher rates are not measured. MuleTrace is an explainable investigation layer designed to complement existing bank fraud systems, not replace them.
 - **Presentation:** a 3-minute demo script with checklist, reset and fallbacks is in [docs/DEMO.md](docs/DEMO.md). The console opens on an Overview page with a guided tour.
 

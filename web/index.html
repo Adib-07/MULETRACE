@@ -905,10 +905,15 @@ async function loadSystem(){
       E ? `${esc(E.os)}, Python ${esc(E.python)}, ${esc(E.cpus)} vCPU, ${esc(E.mem_gib)} GiB (eval/environment.json)` : "Environment file: not found",
       ev && ev.egress ? `Data egress <b>measured</b>: ${ev.egress.non_loopback_connections.length} non-loopback connections in ${ev.egress.samples} socket samples while scoring ${num(ev.egress.payments_scored_during_check)} payments (eval/egress.json)` : "Data egress: not measured (declared only: no outbound network code)",
       "Big-endian: model JSON/UBJSON round trips give identical predictions on s390x (test suite)"]),
-    col("◇ Hardware capability, not used", "var(--blue)", [
+    (ev && ev.nnpa && ev.nnpa.nnpa_used) ? col("◇ Measured on Telum II (not the live model)", "var(--blue)", [
+      `NNPA scoring path <b>measured</b>: Snap ML boosted trees as zDNN tensors (library-reported <b>${esc(ev.nnpa.nnpa_proof.snapml_reported_tree_format)}</b>; zDNN ${esc(ev.nnpa.nnpa_proof.zdnn_library_version)} reports NNPA installed; ${ev.nnpa.nnpa_proof.zdnn_functions_bound_during_predict.length} zDNN functions incl. zdnn_matmul_op called during predict)`,
+      `Accuracy: PR-AUC <b>${fx(ev.nnpa.snapml_zdnn_tensors.pr_auc,4)}</b> vs model C ${fx(ev.nnpa.model_C_xgboost_cpu.pr_auc,4)}; scores identical to Snap ML on CPU`,
+      `Latency batch 1 / 256 (p50): NNPA ${fx(ev.nnpa.snapml_zdnn_tensors.latency_batch1.p50_ms,3)} / ${fx(ev.nnpa.snapml_zdnn_tensors.latency_batch256.p50_ms,2)} ms vs Snap ML CPU ${fx(ev.nnpa.snapml_compress_trees.latency_batch1.p50_ms,3)} / ${fx(ev.nnpa.snapml_compress_trees.latency_batch256.p50_ms,2)} ms: <b>no speed-up</b> at these sizes`,
+      `Live model stays C (XGBoost, <b>CPU</b>): higher PR-AUC. NNPA path is optional (MULETRACE_SCORER=c-nnpa). Source: eval/nnpa.json`])
+    : col("◇ Hardware capability, not used", "var(--blue)", [
       `On-chip AI accelerator (NNPA, Telum II): <b>${s.nnpa ? "detected" : "not detected"}</b>`,
       "Model C runs on the <b>CPU</b> (XGBoost). No NNPA speed-up is claimed.",
-      "Snap ML: importing model C failed (\"no objective defined\"); a Snap ML model trained on the same features scored chance-level PR-AUC; Snap ML reports CPU-only mode (docs/LINUXONE.md)."]),
+      "NNPA scoring path: not measured (eval/nnpa.json missing)."]),
     col("⚠ Simulated", "var(--flag)", [
       "<b>HOLD</b> is a recommendation: no payment is actually paused.",
       "<b>Confirm / Escalate / Dismiss</b> are recorded in the audit log only; nothing is reported or blocked.",

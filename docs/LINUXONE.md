@@ -42,11 +42,35 @@ Other measurements on the same VM: the feature pass over 2,000,000 payments took
 - **Big-endian.** No byte-order problems were observed. The pickles and the XGBoost JSON model load and score identically, and all tests pass on s390x.
 - **Not s390x-specific:** XGBoost on our macOS dev machines needs `libomp`. Tests were therefore run on the VM.
 
-## On-chip AI (NNPA): what we tried
+## On-chip AI (NNPA): measured (2026-10-18)
 
-- The NNPA flag is present (Telum II). **Model C runs on the CPU. We do not claim NNPA acceleration.**
-- `pip install snapml` installed IBM Snap ML 1.17.2 (s390x wheel). On import it warns: "Falling back to CPU-only mode. IBM Snap ML will not leverage NNPA." `libzdnn` is not installed on the VM.
-- `bench/snapml_try.py`: importing model C with `BoostingMachineClassifier().import_model("models/model_c.json", input_type="xgb_json")` **failed** with `SnapMlLibrary.Error: no objective defined in models/model_c.json`. Snap ML 1.17.2 does not read this XGBoost 3.4.1 JSON model. No Snap ML or NNPA latency was measured.
-- For reference, the same script measured XGBoost single-row `predict_proba` on the VM at about 0.135 ms p50 (200 rows). The remainder of the ~1.1 ms decision is feature computation, DataFrame construction and bookkeeping.
-- **Retry (2026-10-18, `bench/model_consistency_snapml.py`):** we trained a Snap ML `BoostingMachineClassifier` (300 rounds, depth 6, lr 0.1, 3 threads) on the same 20 features and the same 200,361-row sample. It fit in 1.8 s but scored **PR-AUC 0.001 on test, chance level** (XGBoost: 0.2188), so it is not usable as configured. Its single-row CPU `predict_proba` took p50 0.084 ms against 0.130 ms for XGBoost. That is meaningless given the accuracy, and it is CPU-only: Snap ML still reports "Falling back to CPU-only mode".
-- **Next step (not done):** install zDNN, retrain or convert model C into a format Snap ML accepts, and measure CPU vs NNPA on the same 20,000 payments before claiming anything.
+**Live model:** C (XGBoost) on CPU. **NNPA:** measured as an optional scoring path, with proof that it was used.
+
+How it was enabled, without sudo: Snap ML 1.17.2 ships zDNN builds of its libraries but fell back to CPU because `libzdnn` was missing. We fetched Ubuntu's `libzdnn0` 1.0.1 with `apt-get download` (no install), unpacked it into `~/zdnn` with `dpkg-deb -x`, and pointed Snap ML at it:
+```bash
+Z=~/zdnn/root/usr/lib/s390x-linux-gnu/libzdnn.so.0
+LD_LIBRARY_PATH=$(dirname $Z) SNAPML_ZDNN_LIB=$Z python bench/nnpa_snapml.py     # -> eval/nnpa.json
+```
+Snap ML then loads `libsnapmllocal3_zdnn` / `libsnapmlutils_zdnn` instead of the CPU build.
+
+Steps that failed on the way:
+- Importing XGBoost 3.4.1 JSON (`input_type="xgb_json"`) fails with "no objective defined". A re-ordered copy fails with "parse error 13".
+- A freshly fitted Snap ML booster aborts in `optimize_trees` (`tree_ensemble_models.size() > 0` assertion).
+- Without `class_weight="balanced"`, Snap ML learns a constant (PR-AUC 0.001). This is the earlier "chance-level" result.
+
+What worked: train Snap ML `BoostingMachineClassifier` (balanced, depth 6, 300 rounds) on the same 20 features and the same train sample as model C, then export to PMML and re-import with `tree_format="zdnn_tensors"`.
+
+**Proof that NNPA was used**, three independent signals in `eval/nnpa.json`:
+1. Snap ML reports `optimized_tree_format_ = zdnn_tensors`. The CPU run reports `compress_trees`.
+2. zDNN 1.0.1 `zdnn_is_nnpa_installed()` = True.
+3. Under `LD_DEBUG=bindings`, a zdnn_tensors predict binds 9 zDNN functions, including `zdnn_matmul_op`, `zdnn_transform_ztensor` and `zdnn_transform_origtensor`.
+
+| Test set (400,000 payments), thresholds from validation | PR-AUC | Recall | Precision | Review | p50 batch 1 | p50 batch 256 |
+|---|---:|---:|---:|---:|---:|---:|
+| Model C, XGBoost, CPU (live) | 0.2188 | 45.7% | 5.0% | 0.9% | 0.123 ms | 1.66 ms |
+| Snap ML, CPU (`compress_trees`) | 0.2012 | 49.0% | 4.6% | 1.05% | 0.011 ms | 0.89 ms |
+| **Snap ML, NNPA (`zdnn_tensors`)** | 0.2012 | 49.0% | 4.6% | 1.05% | 0.028 ms | 3.84 ms |
+
+- NNPA and Snap ML CPU scores are identical (max difference 0.0).
+- **No NNPA speed-up here:** at batch 1 and 256 the NNPA path is slower than Snap ML's own CPU path (zDNN tensor transforms per call). Larger batches were not measured.
+- Model C keeps the higher PR-AUC, so it stays live. The NNPA path is available behind `MULETRACE_SCORER=c-nnpa` (refuses to start unless Snap ML's zDNN build is loaded and the model is placed as `zdnn_tensors`). On the VM, a `c-nnpa` server scored 3,000 replayed payments with 0 errors. That path returns ring-pattern reasons only: the XGBoost contributions would describe a different model.

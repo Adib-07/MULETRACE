@@ -12,6 +12,7 @@ std = {m["model"][0]: {**m, **load("report.json")["models"][m["model"]]} for m i
 shf = {m["model"][0]: {**m, **load("report_shuf.json")["models"][m["model"]]} for m in load("metrics_shuf.json")}
 rep, lat, env = load("report.json"), load("latency.json"), load("environment.json")
 dd, eg = load("detection_delay.json"), load("egress.json")
+nn = load("nnpa.json"); nC, nS, nZ = nn["model_C_xgboost_cpu"], nn["snapml_compress_trees"], nn["snapml_zdnn_tensors"]
 pct = lambda v: f"{v * 100:.1f}%"
 ci = lambda m: f"{m['pr_auc']:.4f} ({m['pr_auc_ci95'][0]:.3f}–{m['pr_auc_ci95'][1]:.3f})"
 names = {"A": "A · Transaction-only XGBoost", "B": "B · Simple rules", "N": "N · Network features only", "C": "**C · MuleTrace (all 20 features)**"}
@@ -65,6 +66,7 @@ Source: [`eval/latency.json`](eval/latency.json), [`eval/environment.json`](eval
 | … client round trip on the same machine | {hp['client_round_trip_ms']['p50']:.2f} ms | {hp['client_round_trip_ms']['p95']:.2f} ms | {hp['client_round_trip_ms']['p99']:.2f} ms |
 
 - **Data stays put, measured:** {eg_line}.
+- **Telum II on-chip AI (NNPA), measured as an optional path:** IBM Snap ML boosted trees on the same 20 features, run as zDNN tensors. Proof of NNPA use: Snap ML reports `{nn['nnpa_proof']['snapml_reported_tree_format']}`, zDNN {nn['nnpa_proof']['zdnn_library_version']} reports NNPA installed, and {len(nn['nnpa_proof']['zdnn_functions_bound_during_predict'])} zDNN functions (incl. `zdnn_matmul_op`) are called during predict. PR-AUC {nZ['pr_auc']:.4f} vs model C {nC['pr_auc']:.4f}, so **model C (CPU) stays live**. Latency p50 at batch 1 / 256: NNPA {nZ['latency_batch1']['p50_ms']:.3f} / {nZ['latency_batch256']['p50_ms']:.2f} ms, Snap ML CPU {nS['latency_batch1']['p50_ms']:.3f} / {nS['latency_batch256']['p50_ms']:.2f} ms, XGBoost CPU {nC['latency_batch1']['p50_ms']:.3f} / {nC['latency_batch256']['p50_ms']:.2f} ms: **no NNPA speed-up at these batch sizes** ([`eval/nnpa.json`](eval/nnpa.json)).
 <!-- ibmz:end -->"""
 
 JUDGING = [f"{env['uname_m']}, machine type {env['machine_type']}, {env['cpus']} vCPU, {env['mem_gib']} GiB",
