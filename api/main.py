@@ -3,7 +3,7 @@
 Every decision is a recommendation. No payment is actually held, released or reported: those actions are simulated,
 and every analyst decision is written to an append-only audit log.
 """
-import hmac, json, logging, os, platform, re, sqlite3, sys, threading, time
+import base64, hashlib, hmac, json, logging, os, platform, re, sqlite3, sys, threading, time
 from collections import deque
 from datetime import datetime
 from typing import Literal
@@ -33,6 +33,13 @@ def load_token(raw):
 
 TOKEN = load_token(os.environ.get("MULETRACE_TOKEN"))
 CORS = [o.strip() for o in os.environ.get("MULETRACE_CORS", "").split(",") if o.strip()]
+PUBLIC_DEMO = os.environ.get("MULETRACE_PUBLIC_DEMO") == "1"   # judge mode: no-token callers get the limited 'public' role
+TRUST_PROXY = os.environ.get("MULETRACE_TRUST_PROXY") == "1"   # take the client IP from X-Forwarded-For when the peer is localhost
+PUBLIC_MAX_SPEED = 100
+RESET_MIN = 10                      # public demo reset at most every 10 minutes
+MAX_BODY = 16 * 1024
+if PUBLIC_DEMO and not TOKEN:
+    raise SystemExit("MULETRACE_PUBLIC_DEMO=1 needs MULETRACE_TOKEN (the admin token) to be set")
 AHEAD_MIN = 60                      # reject payments more than this many minutes ahead of the stream
 
 logging.basicConfig(level=os.environ.get("MULETRACE_LOG_LEVEL", "INFO"),
@@ -46,6 +53,65 @@ if CORS:                            # same-origin only unless explicitly configu
     app.add_middleware(CORSMiddleware, allow_origins=CORS, allow_methods=["GET", "POST"],
                        allow_headers=["Content-Type", "X-MuleTrace-Token"])
 
+def _csp():
+    """CSP allowing only this origin, plus hashes of the page's own inline scripts (no 'unsafe-inline' for scripts)."""
+    hashes = []
+    try:
+        html = open(os.path.join(WEB, "index.html")).read()
+        for body in re.findall(r"<script>(.*?)</script>", html, re.S):
+            hashes.append("'sha256-" + base64.b64encode(hashlib.sha256(body.encode()).digest()).decode() + "'")
+    except FileNotFoundError:
+        pass
+    return ("default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com " + " ".join(hashes) +
+            "; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; "
+            "object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'")
+CSP = _csp()
+SECURITY_HEADERS = {"Content-Security-Policy": CSP, "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer",
+                    "X-Frame-Options": "DENY", "Permissions-Policy": "camera=(), microphone=(), geolocation=()"}
+LIMITS = {"read": (15.0, 120), "write": (1.0, 5)}      # tokens per second, burst (per client IP, non-admin callers)
+_buckets, _bucket_lock = {}, threading.Lock()
+
+def client_ip(request):
+    ip = request.client.host if request.client else "?"
+    if TRUST_PROXY and ip in ("127.0.0.1", "::1") and request.headers.get("x-forwarded-for"):
+        ip = request.headers["x-forwarded-for"].split(",")[0].strip()
+    return ip
+
+def take(ip, kind):
+    rate, burst = LIMITS[kind]
+    now = time.monotonic()
+    with _bucket_lock:
+        if len(_buckets) > 10000:
+            _buckets.clear()
+        tokens, last = _buckets.get((ip, kind), (burst, now))
+        tokens = min(burst, tokens + (now - last) * rate)
+        ok = tokens >= 1
+        _buckets[(ip, kind)] = (tokens - 1 if ok else tokens, now)
+    return ok
+
+def is_admin(request):
+    tok = request.headers.get("x-muletrace-token", "")
+    return bool(TOKEN) and bool(tok) and hmac.compare_digest(tok.encode(), TOKEN.encode())
+
+@app.middleware("http")
+async def guard(request: Request, call_next):
+    def deny(code, detail, extra=None):
+        r = JSONResponse({"detail": detail}, status_code=code, headers=extra or {})
+        r.headers.update(SECURITY_HEADERS); return r
+    if request.method in ("POST", "PUT", "PATCH"):
+        size = request.headers.get("content-length")
+        if size is None:
+            return deny(411, "Content-Length required")
+        if not size.isdigit() or int(size) > MAX_BODY:
+            return deny(413, f"request body larger than {MAX_BODY} bytes")
+    if TOKEN and not is_admin(request):                  # anonymous/public callers are rate limited per IP
+        kind = "write" if request.method == "POST" else "read"
+        if not take(client_ip(request), kind):
+            return deny(429, "too many requests; slow down", {"Retry-After": "2"})
+    response = await call_next(request)
+    response.headers.update(SECURITY_HEADERS)
+    return response
+
 @app.middleware("http")
 async def json_only_posts(request: Request, call_next):
     # A cross-site page can only send text/plain or form bodies without a CORS preflight.
@@ -53,7 +119,9 @@ async def json_only_posts(request: Request, call_next):
     if request.method == "POST":
         ctype = request.headers.get("content-type", "").split(";")[0].strip().lower()
         if ctype != "application/json":
-            return JSONResponse({"detail": "Content-Type must be application/json"}, status_code=415)
+            r = JSONResponse({"detail": "Content-Type must be application/json"}, status_code=415)
+            r.headers.update(SECURITY_HEADERS)
+            return r
     return await call_next(request)
 
 @app.exception_handler(RequestValidationError)
@@ -67,9 +135,27 @@ async def unhandled(request: Request, exc: Exception):
     log.exception("unhandled error on %s %s", request.method, request.url.path)
     return JSONResponse({"detail": "internal server error (see server log)"}, status_code=500)
 
-def require_token(x_muletrace_token: str = Header(default="")):
-    if TOKEN and not hmac.compare_digest(x_muletrace_token.encode(), TOKEN.encode()):
+def caller_role(x_muletrace_token: str = Header(default="")):
+    """'admin' with the token (or when no token is configured, local dev); 'public' without one in judge mode."""
+    if not TOKEN:
+        return "admin"
+    if x_muletrace_token:
+        if hmac.compare_digest(x_muletrace_token.encode(), TOKEN.encode()):
+            return "admin"
         raise HTTPException(401, "missing or wrong X-MuleTrace-Token header")
+    if PUBLIC_DEMO:
+        return "public"
+    raise HTTPException(401, "missing or wrong X-MuleTrace-Token header")
+
+def read_access(role: str = Depends(caller_role)):
+    return role
+
+def admin_only(role: str = Depends(caller_role)):
+    if role != "admin":
+        raise HTTPException(403, "not available in the public demo")
+    return role
+
+require_token = read_access       # name kept for readability at the call sites
 
 # ---------- model + thresholds ----------
 meta = json.load(open(os.path.join(MODELS, "meta.json")))
@@ -118,29 +204,33 @@ RECOMMENDATION = {
 }
 
 # ---------- alert store + audit log ----------
-db = sqlite3.connect(DB_PATH, check_same_thread=False)
-db.execute("PRAGMA journal_mode=WAL")
-db.execute("PRAGMA synchronous=NORMAL")
-db.execute("""CREATE TABLE IF NOT EXISTS alerts(id INTEGER PRIMARY KEY, txn_id TEXT,
-  ts INTEGER, src TEXT, dst TEXT, amount REAL, score REAL, decision TEXT,
-  reasons TEXT, status TEXT DEFAULT 'open', truth INTEGER)""")
-have = {r[1] for r in db.execute("PRAGMA table_info(alerts)")}
-for col, typ in (("currency", "TEXT"), ("fmt", "TEXT"), ("note", "TEXT"), ("acted_at", "REAL"), ("created_at", "REAL"), ("explanations", "TEXT")):
-    if col not in have:
-        db.execute(f"ALTER TABLE alerts ADD COLUMN {col} {typ}")
-for old, new in LEGACY.items():
-    n = db.execute("UPDATE alerts SET decision=? WHERE decision=?", (new, old)).rowcount
-    if n:
-        log.info("migrated %d alerts from decision %s to %s", n, old, new)
-db.execute("CREATE INDEX IF NOT EXISTS alerts_txn ON alerts(txn_id)")
-db.execute("""CREATE TABLE IF NOT EXISTS audit_log(id INTEGER PRIMARY KEY,
-  alert_id INTEGER NOT NULL REFERENCES alerts(id), action TEXT NOT NULL, from_status TEXT,
-  to_status TEXT NOT NULL, analyst TEXT NOT NULL, note TEXT, created_at REAL NOT NULL)""")
-db.execute("CREATE INDEX IF NOT EXISTS audit_alert ON audit_log(alert_id)")
-for op in ("UPDATE", "DELETE"):
-    db.execute(f"""CREATE TRIGGER IF NOT EXISTS audit_log_no_{op.lower()} BEFORE {op} ON audit_log
-      BEGIN SELECT RAISE(ABORT, 'audit_log is append-only'); END""")
-db.commit()
+def open_db(path):
+    db = sqlite3.connect(path, check_same_thread=False)
+    db.execute("PRAGMA journal_mode=WAL")
+    db.execute("PRAGMA synchronous=NORMAL")
+    db.execute("""CREATE TABLE IF NOT EXISTS alerts(id INTEGER PRIMARY KEY, txn_id TEXT,
+      ts INTEGER, src TEXT, dst TEXT, amount REAL, score REAL, decision TEXT,
+      reasons TEXT, status TEXT DEFAULT 'open', truth INTEGER)""")
+    have = {r[1] for r in db.execute("PRAGMA table_info(alerts)")}
+    for col, typ in (("currency", "TEXT"), ("fmt", "TEXT"), ("note", "TEXT"), ("acted_at", "REAL"), ("created_at", "REAL"), ("explanations", "TEXT")):
+        if col not in have:
+            db.execute(f"ALTER TABLE alerts ADD COLUMN {col} {typ}")
+    for old, new in LEGACY.items():
+        n = db.execute("UPDATE alerts SET decision=? WHERE decision=?", (new, old)).rowcount
+        if n:
+            log.info("migrated %d alerts from decision %s to %s", n, old, new)
+    db.execute("CREATE INDEX IF NOT EXISTS alerts_txn ON alerts(txn_id)")
+    db.execute("""CREATE TABLE IF NOT EXISTS audit_log(id INTEGER PRIMARY KEY,
+      alert_id INTEGER NOT NULL REFERENCES alerts(id), action TEXT NOT NULL, from_status TEXT,
+      to_status TEXT NOT NULL, analyst TEXT NOT NULL, note TEXT, created_at REAL NOT NULL)""")
+    db.execute("CREATE INDEX IF NOT EXISTS audit_alert ON audit_log(alert_id)")
+    for op in ("UPDATE", "DELETE"):
+        db.execute(f"""CREATE TRIGGER IF NOT EXISTS audit_log_no_{op.lower()} BEFORE {op} ON audit_log
+          BEGIN SELECT RAISE(ABORT, 'audit_log is append-only'); END""")
+    db.commit()
+    return db
+
+db = open_db(DB_PATH)
 
 def tmin(ts):
     return int(pd.Timestamp(ts).value // 60_000_000_000)
@@ -148,15 +238,21 @@ def tmin(ts):
 def fmt_min(t):
     return str(pd.Timestamp(t, unit="m"))
 
-def warm_up():
-    t0 = time.time()
+def build_state():
+    """Flow memory from the train + validation history (the past before the test stream)."""
+    t0, st, last = time.time(), FlowState(), 0
     for name in ["train", "valid"]:
         df = pd.read_pickle(os.path.join(DATA, name + ".pkl"))
         ts = df["ts"].values.astype("datetime64[m]").astype("int64")
         for t, s, d, a in zip(ts, df["src"].values, df["dst"].values, df["amount"].values):
-            state.update(int(t), s, d, float(a))
-        last_t[0] = max(last_t[0], int(ts.max()))
-    log.info("warm-up done (past history loaded) in %d s; stream time %s", round(time.time() - t0), fmt_min(last_t[0]))
+            st.update(int(t), s, d, float(a))
+        last = max(last, int(ts.max()))
+    log.info("warm-up done (past history loaded) in %d s; stream time %s", round(time.time() - t0), fmt_min(last))
+    return st, last
+
+def warm_up():
+    global state
+    state, last_t[0] = build_state()
 warm_up()
 
 def extra_reasons(f, p):
@@ -356,13 +452,13 @@ def system():
             "data_egress_basis": egress_basis(),
             "inference": "CPU (XGBoost). NNPA is not used by this model." if nnpa_model is None else "NNPA via Snap ML zdnn_tensors (eval/nnpa.json)",
             "model": "XGBoost (MuleTrace network model C)" if nnpa_model is None else "Snap ML boosted trees on Telum II NNPA (C-nnpa)",
-            "scorer": SCORER, "features": len(FEATS),
+            "scorer": SCORER, "features": len(FEATS), "public_demo": PUBLIC_DEMO,
             "flag_threshold": round(FLAG, 4), "hold_threshold": round(HOLD, 4),
             "stream_time": fmt_min(last_t[0]) if last_t[0] else None,
             "auth": "token" if TOKEN else "none (bind to 127.0.0.1 and use an SSH tunnel)",
             "simulated": True}
 
-@app.post("/score", dependencies=[Depends(require_token)])
+@app.post("/score", dependencies=[Depends(admin_only)])
 def score(x: Txn):
     try:
         return score_payment(x.model_dump())
@@ -507,8 +603,10 @@ def evidence():
         out["environment"].pop("pip_freeze", None)
     return out
 
-@app.post("/replay/start", dependencies=[Depends(require_token)])
-def replay_start(r: ReplayReq):
+@app.post("/replay/start")
+def replay_start(r: ReplayReq, role: str = Depends(read_access)):
+    if role == "public" and r.speed > PUBLIC_MAX_SPEED:
+        raise HTTPException(403, f"the public demo replays at most {PUBLIC_MAX_SPEED} payments per second")
     global _replay_thread, _test
     with replay_lock:               # at most one active stream
         if _replay_thread is not None and _replay_thread.is_alive():
@@ -534,6 +632,38 @@ def replay_stop():
     if t is not None:
         t.join(timeout=2)
     return dict(replay)
+
+last_reset = [0.0]
+
+@app.post("/demo/reset")
+def demo_reset(role: str = Depends(read_access)):
+    """Public demo only: archive the demo DB (never deleted: the audit log stays append-only), rebuild the flow memory."""
+    global db, state, _test
+    if not PUBLIC_DEMO:
+        raise HTTPException(404, "Not Found")
+    wait = RESET_MIN * 60 - (time.time() - last_reset[0])
+    if role != "admin" and wait > 0:
+        raise HTTPException(429, f"the demo was reset recently; try again in {int(wait // 60) + 1} min")
+    _stop.set()
+    if _replay_thread is not None:
+        _replay_thread.join(timeout=5)
+    new_state, new_last = build_state()
+    with lock, db_lock, stats_lock:
+        db.close()
+        stamp = time.strftime("%Y%m%d-%H%M%S")
+        if os.path.exists(DB_PATH):
+            os.replace(DB_PATH, f"{DB_PATH}.{stamp}.bak")
+        for ext in ("-wal", "-shm"):
+            if os.path.exists(DB_PATH + ext):
+                os.remove(DB_PATH + ext)
+        db = open_db(DB_PATH)
+        state, last_t[0] = new_state, new_last
+        scored_ids.clear(); recent.clear(); ticks.clear(); lat_ms.clear()
+        stats.update({"scored": 0, "pass": 0, "flag": 0, "hold": 0, "ms_total": 0.0})
+        replay.update({"running": False, "pos": 0, "sent": 0, "rejected": 0, "error": None})
+        last_reset[0] = time.time()
+    log.info(json.dumps({"event": "demo_reset", "by": role, "archived": stamp}))
+    return {"reset": True, "next_public_reset_in_min": RESET_MIN}
 
 if __name__ == "__main__":
     import uvicorn

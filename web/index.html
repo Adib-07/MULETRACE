@@ -214,6 +214,7 @@ tr.best td{font-weight:700;background:rgba(110,160,255,.08)}
   <button data-p="system"><span class="ic" aria-hidden="true">⚙</span>System</button>
 </nav>
 <main id="main">
+<div id="pubBar" class="banner info hidden" role="note"><span><b>Public demo</b> — synthetic IBM AML data; actions are simulated and reset periodically.</span><button class="btn ghost" id="pubReset">Reset demo</button></div>
 <div id="banner" class="banner hidden" role="alert"></div>
 
 <!-- OVERVIEW -->
@@ -430,10 +431,11 @@ async function api(path, opts={}){
   if(authBlocked && !PUBLIC.test(path)){       // do not hammer the server with requests we know will be refused
     const e = new Error("API token required"); e.http = 401; e.auth = true; throw e;
   }
-  const ctl = new AbortController(); const t = setTimeout(()=>ctl.abort(), 10000);
+  const {timeout = 10000, ...fetchOpts} = opts;      // slow operations (demo reset) pass a longer timeout
+  const ctl = new AbortController(); const t = setTimeout(()=>ctl.abort(), timeout);
   const headers = {"Content-Type":"application/json"}; if(TOKEN) headers["X-MuleTrace-Token"] = TOKEN;
   try{
-    const r = await fetch(API + path, {...opts, signal: ctl.signal, headers});
+    const r = await fetch(API + path, {...fetchOpts, signal: ctl.signal, headers});
     const body = await r.json().catch(()=> ({}));
     if(!r.ok){
       const e = new Error(typeof body.detail === "string" ? body.detail
@@ -497,6 +499,7 @@ function setMode(m, detail){
   document.querySelectorAll("#cActions button").forEach(x => x.disabled = !live);
   if(!live){ $("startBtn").disabled = true; $("stopBtn").disabled = true; }
   if(page === "overview") loadOverview();
+  if(live) checkPublic();
   machinePill();
 }
 function segment(id, cb){
@@ -1079,6 +1082,24 @@ try{ if(sessionStorage.getItem("mtTour")) $("ovTour").textContent = "Replay the 
 
 $("tokChange").onclick = () => { $("tokMenu").open = false; banner(null); authNeeded("Paste the new token."); $("tokIn").focus(); };
 $("tokForget").onclick = () => { $("tokMenu").open = false; forgetToken(); toast("Token forgotten for this tab"); };
+
+// ---------- public demo (judge mode) ----------
+let PUBLIC_DEMO = false;
+async function checkPublic(){
+  try{ PUBLIC_DEMO = !!(await api("/system")).public_demo; }catch(e){ return; }
+  show_($("pubBar"), PUBLIC_DEMO);
+  const fast = document.querySelector('#speed button[data-v="200"]');
+  fast.disabled = PUBLIC_DEMO; fast.title = PUBLIC_DEMO ? "The public demo replays at most 100 payments per second" : "";
+  if(PUBLIC_DEMO && segVal("speed") === "200") document.querySelector('#speed button[data-v="100"]').click();
+  if(PUBLIC_DEMO){ $("scoreBtn").disabled = true; $("scoreOut").innerHTML = '<div class="banner info">Scoring single payments is disabled in the public demo. Use the payment stream on Live.</div>'; }
+}
+$("pubReset").onclick = () => busy($("pubReset"), async () => {
+  const label = $("pubReset").textContent; $("pubReset").textContent = "Resetting… (about 10 s)";
+  try{ await api("/demo/reset", {method:"POST", body:"{}", timeout: 60000}); toast("Demo reset: empty case queue, stream back at the start");
+       alerts = []; selected = null; seen = new Set(); latest = []; $("strip").innerHTML = '<span class="meta">None yet.</span>'; closeCase(); await tick(); if(page === "cases") loadAlerts(); }
+  catch(e){ toast(e.message); }
+  finally{ $("pubReset").textContent = label; }
+});
 
 // ---------- start ----------
 if(qs.get("demo") === "1") setMode("demo");
