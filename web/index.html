@@ -901,11 +901,12 @@ async function loadSystem(){
       L ? `Decision latency p50 <b>${fx(L.inproc.all.p50,2)} ms</b>, p99 <b>${fx(L.inproc.all.p99,2)} ms</b> over ${num(L.inproc.all.n)} payments (eval/latency.json, ${esc(L.inproc.measured_at)})` : "Latency: not measured (eval/latency.json missing)",
       L ? `HTTP at ${esc(L.http_50rps.target_rate)} req/s: ${num(L.http_50rps.sent)} requests, ${Object.values(L.http_50rps.errors).reduce((a,b)=>a+b,0)} errors` : "HTTP load test: not measured",
       E ? `${esc(E.os)}, Python ${esc(E.python)}, ${esc(E.cpus)} vCPU, ${esc(E.mem_gib)} GiB (eval/environment.json)` : "Environment file: not found",
-      `Outbound calls: <b>none</b> (declared: the API has no outbound network code)`]),
+      ev && ev.egress ? `Data egress <b>measured</b>: ${ev.egress.non_loopback_connections.length} non-loopback connections in ${ev.egress.samples} socket samples while scoring ${num(ev.egress.payments_scored_during_check)} payments (eval/egress.json)` : "Data egress: not measured (declared only: no outbound network code)",
+      "Big-endian: model JSON/UBJSON round trips give identical predictions on s390x (test suite)"]),
     col("◇ Hardware capability, not used", "var(--blue)", [
       `On-chip AI accelerator (NNPA, Telum II): <b>${s.nnpa ? "detected" : "not detected"}</b>`,
       "Model C runs on the <b>CPU</b> (XGBoost). No NNPA speed-up is claimed.",
-      "Snap ML attempt: model import failed; Snap ML reports CPU-only mode here (docs/LINUXONE.md)."]),
+      "Snap ML: importing model C failed (\"no objective defined\"); a Snap ML model trained on the same features scored chance-level PR-AUC; Snap ML reports CPU-only mode (docs/LINUXONE.md)."]),
     col("⚠ Simulated", "var(--flag)", [
       "<b>HOLD</b> is a recommendation: no payment is actually paused.",
       "<b>Confirm / Escalate / Dismiss</b> are recorded in the audit log only; nothing is reported or blocked.",

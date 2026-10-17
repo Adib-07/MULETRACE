@@ -25,6 +25,16 @@ Only measured facts. Sources: [`eval/environment.json`](../eval/environment.json
 HTTP run: 50.0 req/s achieved, errors: 0. Measured 2026-10-17 12:08:40 UTC. Inference: CPU (XGBoost).
 Other measurements on the same VM: the feature pass over 2,000,000 payments took 50 s with 2.3 GB peak memory (`/usr/bin/time -v`). The test suite (28 tests) passes on s390x.
 
+## Data egress (measured)
+
+`bench/egress_check.sh` sampled every socket of the uvicorn process with `ss -tunap` and `lsof -i` every 0.2 s while it scored 2,000 replayed payments (20.0 s, 75 samples, 2026-10-17 15:09:49 UTC). Result: **0 non-loopback connections**; the only socket seen was the listener (tcp 127.0.0.1:8001 0.0.0.0:*). Limit: a connection shorter than the sampling interval could be missed; the API code also has no outbound network calls. Source: [`eval/egress.json`](../eval/egress.json).
+
+## Big-endian checks (measured on s390x)
+
+- `tests/test_model_consistency.py` (runs in the VM test suite): XGBoost JSON and UBJSON round trips give identical predictions. `pred_contribs`, which drives the explanations, sums to the model margin.
+- `bench/model_consistency_snapml.py` on the deployed model C, `sys.byteorder = big`: JSON and UBJSON round trips give identical predictions on 20,000 test rows. Test PR-AUC is 0.2188, matching `eval/metrics.json`.
+- Not verified: a cross-machine comparison against a little-endian host. We had no XGBoost on a little-endian machine.
+
 ## s390x issues we hit, and what we did
 
 - **XGBoost has no s390x wheel.** `pip install xgboost` built 3.4.1 from the source distribution. This needed `build-essential` (apt). The pip log shows "Successfully built xgboost" (wheel `xgboost-3.4.1-py3-none-linux_s390x.whl`).
@@ -38,4 +48,5 @@ Other measurements on the same VM: the feature pass over 2,000,000 payments took
 - `pip install snapml` installed IBM Snap ML 1.17.2 (s390x wheel). On import it warns: "Falling back to CPU-only mode. IBM Snap ML will not leverage NNPA." `libzdnn` is not installed on the VM.
 - `bench/snapml_try.py`: importing model C with `BoostingMachineClassifier().import_model("models/model_c.json", input_type="xgb_json")` **failed** with `SnapMlLibrary.Error: no objective defined in models/model_c.json`. Snap ML 1.17.2 does not read this XGBoost 3.4.1 JSON model. No Snap ML or NNPA latency was measured.
 - For reference, the same script measured XGBoost single-row `predict_proba` on the VM at about 0.135 ms p50 (200 rows). The remainder of the ~1.1 ms decision is feature computation, DataFrame construction and bookkeeping.
+- **Retry (2026-10-18, `bench/model_consistency_snapml.py`):** we trained a Snap ML `BoostingMachineClassifier` (300 rounds, depth 6, lr 0.1, 3 threads) on the same 20 features and the same 200,361-row sample. It fit in 1.8 s but scored **PR-AUC 0.001 on test, chance level** (XGBoost: 0.2188), so it is not usable as configured. Its single-row CPU `predict_proba` took p50 0.084 ms against 0.130 ms for XGBoost. That is meaningless given the accuracy, and it is CPU-only: Snap ML still reports "Falling back to CPU-only mode".
 - **Next step (not done):** install zDNN, retrain or convert model C into a format Snap ML accepts, and measure CPU vs NNPA on the same 20,000 payments before claiming anything.
