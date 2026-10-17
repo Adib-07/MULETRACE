@@ -1,73 +1,53 @@
-# MuleTrace final readiness (2026-10-18)
+# MuleTrace final readiness (final submission pass, 2026-10-18)
 
-## Update: auth blocker fix + identity (latest pass)
-
-- **Root cause of "Could not load cases: missing or wrong X-MuleTrace-Token header"** (reproduced in a browser against the VM; the server and env file were correct):
-  - Save stored any value and closed the banner, so a wrong or rotated token looked accepted.
-  - After a correct token, Cases kept its error until the next 5 s poll.
-  - Pasting the env line (`MULETRACE_TOKEN=…`) was stored verbatim.
-  - Polling kept calling protected endpoints after a 401.
-- **Fixes:** pasted tokens are normalised; a token is validated with a protected GET before storing; "Token rejected — it may have been rotated" (nothing stored); data reloads in place; protected polling pauses until a valid token; header Token menu (Change / Forget); server strips whitespace; `demo_start.sh` writes plain `KEY=value` and prints the retrieval command, never the token.
-- **Identity:** original MuleTrace monogram (an M traced through linked account nodes, single accent `#2f66e0`), favicon and 32/180 px icons, used in the header, Overview, tour and README. The logo passes non-text contrast (≥ 3.46:1) on dark and white.
-
-| Check (this pass) | Result | Command |
-|---|---|---|
-| pytest on the VM | PASS: 52 passed | `python -m pytest -q tests` |
-| Auth e2e, real server: (a) no token → one banner, polling paused; (b) wrong → rejected, not stored; (c) env-line paste → Cases loads without reload; (d) refresh; (e) all pages; (f) 5 protected reads + 4 writes 401 without / 200 with, 4 public 200; token out of URL; Forget/Change | PASS: 8 checks | `tests/e2e/e2e_auth.py` |
-| Core workflow e2e, real server (incl. hover pause, Best ring, node expansion 21→23, Confirm + audit, NNPA path in Trust panel, restart persistence, measured egress on Overview) | PASS: 15 checks, 0 console errors | `tests/e2e/e2e_real.py` |
-| Lighthouse accessibility | PASS: 100 on all six pages | `npx lighthouse@12.2.1` |
-| Contrast | PASS: 33/33 (text ≥ 4.5, logo ≥ 3) | `scripts/contrast_check.py` |
-| README/UI numbers vs eval | PASS | `scripts/readme_results.py --check` |
-| Token in server log / tree / history | PASS: 0 / 0 / 0 (production and test tokens checked) | `grep -cF` (values never printed) |
-
-
-Team Quorvex · IBM Z Datathon 2026 · Real-Time AI for Critical Decisions. Fallback tag `v1-demo`. `v2-submission` = Phases 0–5; **`v2.1-submission` = this state, including Phase 6 (NNPA)**.
+Team Quorvex · IBM Z Datathon 2026 · Real-Time AI for Critical Decisions. Fallback tags: `v1-demo`, `v2-submission`, `v2.1-submission`. **This state: `v2.2-submission`.**
 
 ## Verdict: CONDITIONALLY READY
 
-The working demo, repo and evidence are in place. Conditions **met**:
-- every automated check below passes on the LinuxONE VM
-- the token is required for account data
-- egress is measured
-- restart persistence is proven
-- every number traces to `eval/`
+**Met:**
+- Every automated check below passes on the LinuxONE VM and in the browser.
+- Public judge mode is built and tested.
+- The admin app is never exposed.
+- Every number traces to `eval/`.
 
-Conditions **still missing**, all of them human tasks:
-- the Hack2Skill submission: deck, short description, demo video, team ID
-- a decision on the reboot autostart (prepared, not applied)
-- a decision on rewriting git history (a key **filename**, not a key, appears in an old commit)
+**Missing:**
+1. **Public URL.** It needs your approval for three VM changes (firewall 80/443, `setcap` for Caddy, LinuxONE terms check) and then a verification from outside.
+2. **Team-only work:** the demo video, deck, short description and Hack2Skill submission.
+3. **Decisions:** reboot autostart, and the git-history key-filename cleanup.
 
-## Commits in this pass
+## Changes in this pass
 
 | Commit | Change |
 |---|---|
-| `ce99610` | Token required for `/alerts*`, `/graph`, `/recent`; public `/health /system /stats /evidence` carry no account IDs (tests) |
-| `7e3bc4b` | `bench/egress_check.sh` + `eval/egress.json`; `/system` cites the measurement |
-| `22f5f5c` | Real-server e2e: explanation order and restart persistence |
-| `bf93ee3` | `bench/detection_delay.py` + `eval/detection_delay.json`; README/UI number check (`scripts/readme_results.py --check`, tamper test) |
-| `13fc535` | Big-endian model consistency test; Snap ML retry recorded; LINUXONE.md + Trust panel |
-| `1334e1c` | `scripts/autostart.sh` (crontab `@reboot`, not applied) |
-| `c58b27c` | a11y fix (listbox role), e2e no-token check, screenshots |
+| `61c45a3` | Cases list race fixed (a stale response could overwrite a newer filter); `tests/e2e/e2e_controls.py` clicks every control; unmeasured "act faster" claim removed; `requirements-optional.txt`, `requirements-dev.txt` |
+| `ced3a43` | Judge mode (`MULETRACE_PUBLIC_DEMO=1`): public role, per-IP rate limits, 16 KB body cap, CSP with inline-script hashes and other security headers, `POST /demo/reset` (archives the DB; public once per 10 min); console banner and Reset button; `tests/test_public.py`, `tests/e2e/e2e_public.py` |
+| `26b6258` | `deploy/Caddyfile`, `scripts/public_start.sh`; Caddy v2.11.7 s390x verified (SHA-512) in `~/bin` on the VM; static GitHub Pages fallback (MOCKED banner, evidence from `eval/`), `tests/e2e/e2e_static.py` |
+| `a72414a` | README restructured for the public (all required sections); `scripts/check_links.py` |
+| `9494985` | Screenshots from the final runs |
 
 ## Checks
 
 | Check | Result | Command |
 |---|---|---|
-| Unit/API/pipeline/consistency/README-number tests on the VM | PASS: 52 passed (latest pass) | `python -m pytest -q tests` |
-| Real-server e2e (real model, 2M payments): token out of URL; Overview live; start; tour; Best ring; node expansion (21→23 accounts); explanations order; keyboard Confirm + audit; no-token view; keyboard nav; Evidence/System; back/forward; 390px; restart → status and audit identical; 0 console errors | PASS: 14 checks | `MULETRACE_RESTART_CMD=… python tests/e2e/e2e_real.py` |
-| Reads without token → 401, with → 200 (`/alerts`, `/alerts/1`, `/alerts/1/audit`, `/graph/x`, `/recent`); public endpoints → 200 | PASS | `curl` on the VM |
-| Writes without token → 401; foreign-origin CORS preflight refused (405); 0 allow-origin headers | PASS | `curl` |
-| Token in server log | PASS: 0 occurrences (uvicorn runs `--no-access-log`) | `grep -c -F` |
-| Egress while scoring 2,000 payments | PASS: 0 non-loopback connections, 75 samples, 20 s | `bench/egress_check.sh` |
-| README/UI numbers vs `eval/` | PASS | `python scripts/readme_results.py --check` |
-| Contrast | PASS: 30/30 pairs AA, min 5.02:1 | `python scripts/contrast_check.py` |
-| Lighthouse accessibility | PASS: 100 on overview, live, cases, score, evidence, system | `npx lighthouse@12.2.1 --only-categories=accessibility` |
-| Deploy: `demo_reset.sh` → `/health` ok, `/system` s390x/9175/auth token | PASS | `bash scripts/demo_reset.sh` |
-| Listening sockets | PASS: only 127.0.0.1:8000 and SSH (plus the systemd DNS stub on loopback) | `ss -tlnp` |
-| Secret scan (tree + all history) | PASS for keys, IPs and tokens. **Open:** the key filename appears 4× in history (commit `1b2bf28`), 0× in the tree | `git log --all -p \| grep` |
-| Phase 6 NNPA path: Snap ML `zdnn_tensors` on Telum II with proof (library-reported format, `zdnn_is_nnpa_installed`, `zdnn_matmul_op` bound during predict) | PASS: measured | `bench/nnpa_snapml.py` → `eval/nnpa.json` |
-| Optional `MULETRACE_SCORER=c-nnpa` server on the VM: 3,000 replayed payments, 0 errors | PASS | uvicorn on 127.0.0.1:8002 (temporary) |
-| Reboot resilience | BLOCKED: awaiting approval to run `bash scripts/autostart.sh --apply`. App restart with `--keep-db` is tested | – |
+| Unit / API / pipeline / security tests on the VM | PASS: 58 passed | `python -m pytest -q tests` |
+| Core workflow e2e on the real server (overview → stream → tour → hover pause → Best ring → expand 21→23 → explanations → Confirm + audit → Evidence/System/NNPA → back/forward → no-token view → 390px → restart persistence) | PASS: 15 checks, 0 console errors | `tests/e2e/e2e_real.py` |
+| Auth e2e: no / wrong / env-line / refresh / navigation / Forget / Change; 5 reads + 4 writes 401 without token, 200 with | PASS: 8 checks | `tests/e2e/e2e_auth.py` |
+| Every control (filters, sorts, speed, flagged-only, Score form valid/invalid, note rules, Fit/Reset/close, tour Back/Skip/Esc, demo mode) | PASS: 15 checks (found and fixed the list race) | `tests/e2e/e2e_controls.py` |
+| Judge mode in the browser: banner, no token prompt, stream ≤100/s, Score disabled, Best ring + action, Reset + throttle, rate limit (server-side burst: 130×200, 70×429) | PASS: 6 checks | `tests/e2e/e2e_public.py` |
+| Static fallback: MOCKED banner, no live claims, evidence from `eval/`, actions disabled | PASS | `tests/e2e/e2e_static.py` |
+| Security with curl: public reads 200, wrong token 401, public `/score` 403, replay 200/s 403, oversized body 413, text/plain 415, foreign CORS preflight refused, NaN 422, CSP / nosniff / no-referrer / DENY headers | PASS | `curl` on the VM |
+| Lighthouse accessibility (judge mode) | PASS: 100 on all six pages | `npx lighthouse@12.2.1` |
+| Contrast | PASS: 33/33 (text ≥ 4.5, logo ≥ 3) | `scripts/contrast_check.py` |
+| README/UI numbers vs `eval/` | PASS | `scripts/readme_results.py --check` |
+| Links | PASS: 22 in README, 25 across docs | `scripts/check_links.py --all` |
+| Deploy: `demo_start.sh` (token not rotated) + `public_start.sh --app-only`; `/health` 200 on :8000 and :8100 | PASS | VM |
+| Listening sockets on the VM | PASS: SSH on 0.0.0.0; app :8000 and judge :8100 on 127.0.0.1 only | `ss -tlnp` |
+| External reachability (from the Mac, another network) | PASS: 22 open; 80, 443, 8000, 8100 closed | `nc -z` |
+| Token in logs / tree / history | PASS: 0 / 0 / 0 | `grep -cF` (values never printed) |
+| Secret scan | PASS for keys, IP and tokens. **Open:** key *filename* 4× in history (commit `1b2bf28`), 0× in the tree | `git log --all -p \| grep` |
+| Public HTTPS URL from outside | **BLOCKED**: ports 80/443 rejected by the VM firewall; needs approval | – |
+| Reboot autostart | **BLOCKED**: crontab change needs approval (`scripts/autostart.sh`) | – |
+| Memory with both instances | 4.0 GiB used, 3.8 GiB available of 7.8 GiB | `free -h` |
 
 ## Measured metrics (from `eval/`)
 
@@ -76,57 +56,61 @@ Conditions **still missing**, all of them human tasks:
 | PR-AUC, MuleTrace C | 0.1369 (95% CI 0.104–0.186) | 0.2188 (0.175–0.264) |
 | PR-AUC, transaction-only A | 0.0104 | 0.0094 |
 | Recall C at ~1% review | 42.2% | 45.7% |
-| Precision C | 4.8% (≈1 in 21) | 5.0% (≈1 in 20) |
-| FP per 1,000 payments, C | 8.31 | 8.57 |
-| P@100 / P@500 / P@1000, C | 0.47 / 0.15 / 0.096 | 0.74 / 0.218 / 0.133 |
+| Precision C | 4.8% | 5.0% |
+| FP per 1,000 payments | 8.31 | 8.57 |
+| P@100 | 0.47 | 0.74 |
 
-| Other measurement | Value | Source |
+| Other | Value | Source |
 |---|---|---|
-| IBM-labelled attempts detected (start in test window) | 23 of 37 (62.2%), VERIFIED (100% pattern match) | `eval/detection_delay.json` |
-| Detection delay (first payment → first FLAG/HOLD) | median 0 min, p90 587 min, max 1,063 min (standard model) | same |
-| Decision latency in-process (20,000 payments) | p50 1.10 ms, p95 1.59 ms, p99 4.06 ms | `eval/latency.json` |
-| HTTP `/score` at 50 req/s for 30 s | server p50 1.35 ms, p99 4.35 ms; 1,500 requests, 0 errors | same |
-| Egress | 0 non-loopback connections | `eval/egress.json` |
-| NNPA path (Snap ML on zDNN) vs C | PR-AUC 0.2012 vs 0.2188; recall 49.0% vs 45.7% | `eval/nnpa.json` |
-| NNPA latency p50, batch 1 / 256 | 0.028 / 3.84 ms (Snap ML CPU 0.011 / 0.89; XGBoost CPU 0.123 / 1.66): **no NNPA speed-up** | same |
+| Labelled attempts detected | 23 of 37 (62.2%), median delay 0 min, p90 587 min (standard model) | `eval/detection_delay.json` |
+| Latency in-process | p50 1.10 ms, p99 4.06 ms (20,000 payments) | `eval/latency.json` |
+| HTTP 50 req/s for 30 s | server p50 1.35 ms, p99 4.35 ms; 1,500 requests, 0 errors | same |
+| Egress | 0 non-loopback connections (75 samples, 2,000 payments) | `eval/egress.json` |
+| NNPA path (Snap ML on zDNN) | PR-AUC 0.2012 vs C 0.2188; slower than Snap ML on CPU at batch 1/256; proof of NNPA use recorded | `eval/nnpa.json` |
 
-## Scorecard (strict judge, before → after)
+## Public URL status: NOT DEPLOYED (built and tested; awaiting approval)
 
-| Area | Max | Before | After | Evidence for the change |
+The VM firewall (`/etc/iptables/rules.v4`, `netfilter-persistent`) accepts only SSH and rejects everything else. Non-root processes cannot bind below port 1024 (`ip_unprivileged_port_start` = 1024). Everything else is ready: the judge-mode instance runs on 127.0.0.1:8100, and Caddy v2.11.7 for s390x is verified with a validated config.
+
+**Open ports now:** 22 (SSH) only.
+
+## Remaining defects and security concerns
+
+- **One shared admin token**; analyst names are self-declared.
+- **The key filename in git history** (`1b2bf28`): not a secret; cleaning it needs a history rewrite and a force-push.
+- **Judge mode is a public service once exposed.** Rate limits and the demo reset limit abuse, but there is no per-user identity. The admin app stays private.
+- **Rate limits are per process and in memory** (they reset on restart). Behind Caddy the client IP comes from `X-Forwarded-For`, trusted only from localhost.
+- **Model evidence:** one split and seed; about 5% precision; the standard run partly depends on within-minute file order; tested to 50 payments/s on 3 vCPUs only.
+- **The NNPA path** needs `~/zdnn` (user-space library); it isn't installed system-wide.
+
+## MOCKED / SIMULATED / VERIFIED
+
+- **SIMULATED:** HOLD; Confirm / Escalate / Dismiss (audit-logged only); the payment stream (a replay of IBM's synthetic test data).
+- **MOCKED:** `?demo=1` and the static GitHub Pages build: a recorded alert sample from the first model, and recorded `eval/` result files. Always bannered "DEMO" / "MOCKED — recorded from the LinuxONE run".
+- **VERIFIED on the VM:** everything marked PASS above.
+- **UNVERIFIED:** whether the LinuxONE Community Cloud terms allow a public web service; the Hack2Skill rules beyond what you provided.
+
+## Scorecard (same rubric, strict)
+
+| Area | Max | Previous | Now | Evidence |
 |---|---:|---:|---:|---|
-| Problem fit | 10 | 8 | 9 | time-to-detect on IBM-labelled attempts |
+| Problem fit | 10 | 9 | 9 | detection delay on labelled attempts |
 | Originality | 10 | 6 | 6 | unchanged |
-| Technical depth | 15 | 11 | 12 | detection-delay evaluation, egress tooling, number check |
-| IBM Z relevance | 15 | 7 | 11 | egress measured; big-endian test; **NNPA scoring path measured with proof** (not faster, not the live model) |
-| E2E functionality | 10 | 9 | 10 | 14-check real-server e2e incl. restart persistence |
-| Model evidence | 10 | 7 | 8 | detection delay; conservative headline everywhere. Still one split |
-| UX & explainability | 10 | 8 | 10 | Lighthouse 100 on all pages; network signals before context; token flow fixed (validated, in-place reload); original logo |
-| Security/privacy/oversight | 8 | 5 | 7 | token on account-data reads, validated in the UI, never stored when rejected; egress measured. Shared token; key filename in history |
-| Reliability/testing/deploy | 7 | 5 | 6 | restart persistence proven; reboot autostart not applied |
-| Demo/reproducibility | 5 | 4 | 5 | scripts, DEMO.md, numbers regenerated from files |
-| **Total** | 100 | **70** | **84** | |
+| Technical depth | 15 | 12 | 13 | judge mode with roles, rate limits, CSP hashes, reset; static fallback; 5 e2e suites |
+| IBM Z relevance | 15 | 11 | 11 | unchanged (measured latency, egress, NNPA path) |
+| E2E functionality | 10 | 10 | 10 | 15 + 8 + 15 + 6 browser checks |
+| Model evidence | 10 | 8 | 8 | unchanged |
+| UX & explainability | 10 | 10 | 10 | list race fixed; Lighthouse 100 in judge mode |
+| Security/privacy/oversight | 8 | 7 | 7 | roles, limits, headers, body cap; still a shared token and history filename |
+| Reliability/testing/deploy | 7 | 6 | 6 | restart verified; reboot autostart not applied |
+| Demo/reproducibility | 5 | 5 | 4 | no public URL yet: judges need the tunnel or a video |
+| **Total** | 100 | **84** | **84** | |
 
-## Remaining defects and risks
+## Manual steps left (exact)
 
-- **Single shared token**: there are no per-user accounts. The analyst name is self-declared (recorded, not authenticated).
-- **Key filename in git history** (`1b2bf28`): not a secret, but cleaning it needs a history rewrite. Not done without your approval.
-- **No reboot autostart yet**: after a VM reboot, run `bash ~/muletrace/scripts/demo_start.sh --keep-db` (or approve `autostart.sh --apply`).
-- **Model evidence**: one time split, one seed. Precision is about 5%, so roughly 19 of 20 flags are false alarms. The standard-run numbers partly depend on within-minute file order.
-- **Detection delay** uses the standard model, covers only the 37 attempts that start in the test window (68 of 396 laundering rows), and has minute resolution.
-- **Scale**: tested at 50 req/s on 3 vCPUs, single process, in-memory state. Higher rates are not measured.
-- **NNPA**: measured as an optional scoring path, but slightly less accurate than C and not faster at batch 1/256. It relies on user-space `libzdnn` (`~/zdnn`, unpacked from Ubuntu's `libzdnn0` without sudo). Larger batches were not measured.
-- **Egress sampling** (0.2 s) could miss a connection shorter than the interval. The code has no outbound calls.
-
-## Mocked / simulated
-
-- SIMULATED: HOLD (no payment is paused); Confirm/Escalate/Dismiss (recorded in the audit log only); the payment stream (a replay of IBM's synthetic test set).
-- MOCKED (opt-in demo mode `?demo=1` only, labelled): recorded alerts from the first model; no metrics.
-- VERIFIED on the VM: everything in the Checks table.
-
-## Manual checks left for the team
-
-1. Hack2Skill: team ID, the submission form, and the deadline (18 Oct 2026 22:00 IST, as you stated; we could not read the rules page).
-2. Deck and short description: use README TL;DR and Results (conservative headline first).
-3. Demo video: follow `docs/DEMO.md`; rotate the token first (`demo_start.sh --rotate-token`).
-4. Decide on reboot autostart and the git-history rewrite.
-5. Confirm all 6 team members are registered.
+1. **Approve the public URL** (three VM changes, see the chat message), then I run `scripts/public_start.sh` and verify from outside. Please also check from a phone on mobile data.
+2. **Or enable the static fallback:** GitHub → Adib-07/MULETRACE → Settings → Pages → Build and deployment → Source "Deploy from a branch" → Branch `main`, folder `/ (root)` → Save. The page then appears at `https://<owner>.github.io/MULETRACE/web/` (labelled MOCKED).
+3. **Record the demo video** following `docs/DEMO.md` (rotate the token first).
+4. **Write the deck and short description** from README TL;DR / Results / IBM LinuxONE.
+5. **Submit on Hack2Skill** (team ID, repo link, demo link or video, description, deck) before 18 Oct 2026 22:00 IST.
+6. **Decide** on `scripts/autostart.sh --apply` (crontab) and on the git-history rewrite.
