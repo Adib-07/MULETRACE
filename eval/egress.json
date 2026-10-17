@@ -1,0 +1,19 @@
+{
+ "measured_at": "2026-10-17 15:09:49 UTC",
+ "host_arch": "s390x",
+ "process": "uvicorn pid 17012 (listening 127.0.0.1:8001)",
+ "payments_scored_during_check": 2000,
+ "duration_s": 20.0,
+ "samples": 75,
+ "sample_interval_s": 0.2,
+ "method": "ss -tunap filtered by pid + lsof -a -p pid -i, sampled while replaying payments",
+ "distinct_sockets_seen": [
+  "tcp 127.0.0.1:8001 0.0.0.0:*"
+ ],
+ "lsof_names_seen": [
+  "127.0.0.1:8001"
+ ],
+ "non_loopback_connections": [],
+ "verdict": "no non-loopback connections observed",
+ "limits": "Sampling every 0.2 s can miss a connection shorter than the interval; the API code has no outbound network calls (grep)."
+}

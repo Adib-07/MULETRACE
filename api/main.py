@@ -315,6 +315,14 @@ if os.path.isdir(os.path.join(WEB, "vendor")):
 def health():
     return {"status": "ok", "uptime_s": round(time.time() - START)}
 
+def egress_basis():
+    path = os.path.join(EVAL, "egress.json")
+    if not os.path.exists(path):
+        return "declared: the API makes no outbound network calls (not measured)"
+    e = json.load(open(path))
+    return (f"measured {e['measured_at']}: {len(e['non_loopback_connections'])} non-loopback connections of the API process "
+            f"in {e['samples']} socket samples while scoring {e['payments_scored_during_check']} payments (eval/egress.json)")
+
 @app.get("/system")
 def system():
     cpu = open("/proc/cpuinfo").read() if os.path.exists("/proc/cpuinfo") else ""
@@ -323,7 +331,7 @@ def system():
         typ = next((l.split(":")[1].strip() for l in open("/proc/sysinfo") if l.startswith("Type:")), "")
     return {"arch": platform.machine(), "byteorder": sys.byteorder, "python": platform.python_version(),
             "nnpa": "nnpa" in cpu, "machine_type": typ, "cpus": os.cpu_count(), "data_egress": "none",
-            "data_egress_basis": "declared: the API makes no outbound network calls",
+            "data_egress_basis": egress_basis(),
             "inference": "CPU (XGBoost). NNPA is not used by this model.",
             "model": "XGBoost (MuleTrace network model C)", "features": len(FEATS),
             "flag_threshold": round(FLAG, 4), "hold_threshold": round(HOLD, 4),

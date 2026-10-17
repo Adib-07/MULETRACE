@@ -161,3 +161,12 @@ def test_public_endpoints_expose_no_account_ids(client, path):
     r = client.get(path)
     assert r.status_code == 200
     assert "100_A" not in r.text and "200_B" not in r.text and "G_HUB" not in r.text
+
+
+def test_system_cites_egress_measurement(client, app, tmp_path, monkeypatch):
+    assert "not measured" in client.get("/system").json()["data_egress_basis"]      # fixture eval/ has no egress.json
+    e = {"measured_at": "2026-10-18 00:00:00 UTC", "non_loopback_connections": [], "samples": 12, "payments_scored_during_check": 2000}
+    (tmp_path / "egress.json").write_text(__import__("json").dumps(e))
+    monkeypatch.setattr(app, "EVAL", str(tmp_path))
+    basis = client.get("/system").json()["data_egress_basis"]
+    assert basis.startswith("measured") and "0 non-loopback" in basis and "2000 payments" in basis
