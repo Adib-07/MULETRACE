@@ -138,3 +138,12 @@ def test_alert_sort_and_latency_percentiles(client):
     assert client.get("/alerts?sort=bogus").status_code == 422
     s = client.get("/stats").json()
     assert s["p50_ms"] is not None and s["p50_ms"] <= s["p95_ms"]
+
+
+def test_stats_accounts_and_graph_totals(client, app):
+    s = client.get("/stats").json()
+    assert s["accounts_tracked"] == len(app.state.seen) > 0
+    acc = next(iter(app.state.out))
+    g = client.get(f"/graph/{acc}?limit=1").json()
+    assert {"in_amount", "in_count", "out_amount", "out_count"} <= set(g)
+    assert g["out_count"] >= len([e for e in g["edges"] if e["from"] == acc]) and g["out_amount"] >= 0

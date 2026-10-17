@@ -431,7 +431,9 @@ def graph(account: str, limit: int = 25):
         nodes.setdefault(other, {"id": other, "role": "receiver"})
         edges.append({"from": account, "to": other, **e})
     return {"account": account, "nodes": list(nodes.values()), "edges": edges,
-            "senders_total": n_in, "receivers_total": n_out}
+            "senders_total": n_in, "receivers_total": n_out,
+            "in_amount": round(sum(e[2] for e in inn), 2), "in_count": len(inn),
+            "out_amount": round(sum(e[2] for e in out), 2), "out_count": len(out)}
 
 @app.get("/stats")
 def get_stats():
@@ -447,6 +449,7 @@ def get_stats():
         s["by_status"] = dict(db.execute("SELECT status, COUNT(*) FROM alerts GROUP BY status").fetchall())
     s["replay"] = dict(replay)
     s["stream_time"] = fmt_min(last_t[0]) if last_t[0] else None
+    s["accounts_tracked"] = len(state.seen)         # distinct accounts the flow memory has seen
     s["uptime_s"] = round(now - START)
     return s
 
