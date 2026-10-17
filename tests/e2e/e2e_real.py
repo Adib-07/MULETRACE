@@ -3,7 +3,7 @@
 Covers: overview live numbers, start investigation, tour, best ring, node expansion, keyboard-only decision,
 audit, evidence, system, back/forward, keyboard nav, 390px layout, token not kept in the URL, zero console errors.
 """
-import os, sys
+import os, subprocess, sys, time
 from playwright.sync_api import sync_playwright, expect
 
 URL = os.environ.get("MULETRACE_URL", "http://127.0.0.1:8000")
@@ -81,6 +81,12 @@ with sync_playwright() as p:
     assert grown, f"node expansion added no accounts ({n0} -> {n1})"
     ok(f"graph: clicked node expanded, accounts {n0} -> {n1}")
 
+    expect(page.locator("#cNet li").first).to_be_visible()
+    assert "Not available" not in page.inner_text("#cNet") + page.inner_text("#cPay")
+    assert page.evaluate("document.getElementById('cNet').compareDocumentPosition(document.getElementById('cPay')) & 4"), "network signals must come before payment context"
+    assert page.locator("#cPay").evaluate("el => el.previousElementSibling.textContent").startswith("Payment context")
+    ok(f"explanations: {page.locator('#cNet li').count()} network signals listed before {page.locator('#cPay li').count()} payment-context items")
+    case_id = page.evaluate("selected.id")
     page.focus("#cNote"); page.keyboard.type("e2e: fan-in then fast forwarding, checked graph")
     page.keyboard.press("Tab")                   # -> Confirm laundering
     assert page.evaluate("document.activeElement.dataset.a") == "confirm"
@@ -124,7 +130,33 @@ with sync_playwright() as p:
         m.screenshot(path=f"{OUT}/{name}-390.png", full_page=True)
     ok("390px: no horizontal scroll on overview/live/cases/evidence/system")
 
-    page.request.post(f"{URL}/replay/stop", headers={"X-MuleTrace-Token": TOKEN}, data="{}")
+    H = {"X-MuleTrace-Token": TOKEN}
+    page.request.post(f"{URL}/replay/stop", headers={**H, "Content-Type": "application/json"}, data="{}")
+    restart = os.environ.get("MULETRACE_RESTART_CMD")        # restarts the server keeping alerts.db
+    if restart:
+        audit_before = page.request.get(f"{URL}/alerts/{case_id}/audit", headers=H).json()
+        mark = len(errors)
+        subprocess.run(restart, shell=True, check=True, stdout=subprocess.DEVNULL)
+        for _ in range(60):
+            try:
+                if page.request.get(f"{URL}/health").ok: break
+            except Exception: pass
+            time.sleep(1)
+        assert page.request.get(f"{URL}/health").json()["uptime_s"] < 60, "server did not restart"
+        page.wait_for_timeout(2500)              # open pages poll while the server is deliberately down
+        down = [e for e in errors[mark:] if "net::ERR_CONNECTION" in e]
+        errors[mark:] = [e for e in errors[mark:] if "net::ERR_CONNECTION" not in e]
+        print(f"note: ignored {len(down)} connection errors raised during the intentional restart", flush=True)
+        assert page.request.get(f"{URL}/alerts/{case_id}", headers=H).json()["status"] == "confirm"
+        assert page.request.get(f"{URL}/alerts/{case_id}/audit", headers=H).json() == audit_before
+        page.goto(f"{URL}/#cases"); expect(page.locator("#mode")).to_have_text("● LIVE", timeout=20000)
+        page.click("#fStatus button[data-v='confirm']")
+        page.locator(f"#list .alert[data-id='{case_id}']").click()
+        expect(page.locator("#cAudit")).to_contain_text("confirm by e2e-real", timeout=10000)
+        page.screenshot(path=f"{OUT}/case-after-restart-1440.png")
+        ok(f"restart: case #{case_id} still 'confirm', audit trail identical ({len(audit_before)} entries), visible in UI")
+    else:
+        print("SKIP restart persistence (set MULETRACE_RESTART_CMD)")
     b.close()
 
 assert not errors, "console errors: " + " | ".join(errors)
