@@ -162,9 +162,11 @@ samples/             Responses recorded from the first model (before hardening)
 
 | # | Name | Role |
 |---|---|---|
-| M1 | Adib | TBD |
+| M1 | Adib Sunasra | TBD |
 | M2 | Anshu Kumar Singh | TBD |
 | M3 | Abhishek Tiwari | TBD |
+| M4 | Omez Khan | TBD |
+
 
 ## License
 
