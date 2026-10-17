@@ -269,6 +269,7 @@ tr.best td{font-weight:700;background:rgba(110,160,255,.08)}
   <h1 id="h-sys">System</h1>
   <p class="sub">Read live from the machine this console is connected to.</p>
   <div class="grid sys" id="sysKv"><div class="skel"></div></div>
+  <div class="card" style="margin-top:var(--s3)"><h2>Why LinuxONE <span class="meta" style="text-transform:none;letter-spacing:0">measured facts only · details in docs/LINUXONE.md</span></h2><div class="cb" id="whyBox"><div class="skel"></div></div></div>
   <div class="card" style="margin-top:var(--s3)"><h2>How a payment flows</h2><div class="cb">
     <div class="flow">
       <div class="s"><b>1 · Payment arrives</b><span>Validated: time order, amount, accounts</span></div><div class="ar" aria-hidden="true">→</div>
@@ -737,6 +738,14 @@ async function loadSystem(){
     try{ [s, env] = await Promise.all([api("/system"), api("/evidence").then(e => e.environment).catch(() => null)]); }
     catch(e){ $("sysKv").innerHTML = `<div class="banner err" style="grid-column:1/-1">Could not read /system: ${esc(e.message)}. No platform facts are shown without a live reading. <button class="btn ghost" id="syRetry">Retry</button></div>`; $("syRetry").onclick = loadSystem; return; }
   }
+  let ev = null; if(mode === "live"){ try{ ev = await api("/evidence"); }catch(e){} }
+  const L = ev && ev.latency, E = ev && ev.environment;
+  $("whyBox").innerHTML = L ? `<ul class="reasons" style="font-size:var(--f-md)">
+    <li><b>Real-time on the machine that holds the data:</b> ${fx(L.inproc.all.p50,2)} ms median, ${fx(L.inproc.all.p99,2)} ms p99 per decision over ${num(L.inproc.all.n)} payments; over HTTP at ${esc(L.http_50rps.target_rate)} req/s, ${num(L.http_50rps.sent)} requests with ${Object.values(L.http_50rps.errors).reduce((a,b)=>a+b,0)} errors (eval/latency.json, ${esc(L.inproc.measured_at)}).</li>
+    <li><b>No data leaves the box:</b> scoring, flow memory, alerts and audit log are on this server; the API makes no outbound calls.</li>
+    <li><b>Runs natively on IBM Z:</b> ${esc(E ? E.uname_m : L.machine.arch)}, machine type ${esc(E ? E.machine_type : L.machine.machine_type)}, ${esc(E ? E.os : "")}; the whole pipeline and test suite run here.</li>
+    <li><b>On-chip AI is present, not yet used:</b> NNPA flag ${L.machine.nnpa_present ? "detected" : "not detected"}; inference is ${esc(L.machine.inference)}. We do not claim acceleration we have not measured.</li></ul>`
+    : `<div class="meta">${mode === "demo" ? "Demo mode: no measured files available." : "Not measured: eval/latency.json not found."}</div>`;
   const card = (l, v, h) => `<div class="kpi"><div class="l">${l}</div><div class="v" style="font-size:20px">${v}</div><div class="h">${h}</div></div>`;
   $("sysKv").innerHTML = (mode==="demo" ? '<div class="banner warn" style="grid-column:1/-1">Recorded /system reading (samples/system.json), not live.</div>' : "") + [
     card("Machine", esc(MACHINES[s.machine_type] || ("type " + (s.machine_type||"unknown"))), "machine type " + esc(s.machine_type||"not reported")),
