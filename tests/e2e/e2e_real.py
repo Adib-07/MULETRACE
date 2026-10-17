@@ -28,6 +28,7 @@ with sync_playwright() as p:
     ok("token removed from the URL after load")
     expect(page.locator("#p-overview")).to_be_visible()
     expect(page.locator("#ovStrip")).to_contain_text("s390x", timeout=10000)
+    expect(page.locator("#ovStrip")).to_contain_text("measured: 0 non-loopback")
     expect(page.locator("#ovAcc")).not_to_have_text("–", timeout=10000)
     acc = int(page.inner_text("#ovAcc").replace(",", ""))
     assert acc > 0
@@ -52,6 +53,11 @@ with sync_playwright() as p:
     page.click("#nav button[data-p='live']")
     expect(page.locator("#strip button").first).to_be_visible(timeout=60000)
     page.wait_for_timeout(8000)                 # let the stream build some rings
+    page.hover("#feedBox"); expect(page.locator("#paused")).to_be_visible()
+    frozen = page.inner_html("#feed"); page.wait_for_timeout(4500)
+    assert page.inner_html("#feed") == frozen, "feed changed while hovered"
+    page.mouse.move(5, 5); expect(page.locator("#paused")).to_be_hidden()
+    ok("live feed: hover pauses updates, leaving resumes")
     page.screenshot(path=f"{OUT}/live-1440.png", full_page=True)
     page.click("#nav button[data-p='cases']")
     page.click("#bestRing")
