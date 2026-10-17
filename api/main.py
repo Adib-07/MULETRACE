@@ -470,7 +470,8 @@ def metrics():
 
 EVIDENCE_FILES = {"metrics": "metrics.json", "report": "report.json", "metrics_shuf": "metrics_shuf.json",
                   "report_shuf": "report_shuf.json",
-                  "latency": "latency.json", "environment": "environment.json"}
+                  "latency": "latency.json", "environment": "environment.json",
+                  "detection_delay": "detection_delay.json", "egress": "egress.json"}
 
 @app.get("/evidence")
 def evidence():

@@ -1,0 +1,69 @@
+{
+ "created_at": "2026-10-17 15:14:33 UTC",
+ "model": "C (models/model_c.json)",
+ "thresholds": {
+  "flag": 0.7471601408720023,
+  "hold": 0.9588851364850972
+ },
+ "test_window": [
+  "2022-09-02 15:14:00",
+  "2022-09-03 14:31:00"
+ ],
+ "attempts_in_test_window": 37,
+ "attempts_detected": 23,
+ "detected_pct": 62.2,
+ "attempts_with_hold": 17,
+ "delay_minutes": {
+  "median": 0.0,
+  "p75": 0.0,
+  "p90": 587.0000000000005,
+  "min": 0.0,
+  "max": 1063.0
+ },
+ "pattern_payments_in_window": 68,
+ "pattern_payments_matched": 68,
+ "match_rate": 1.0,
+ "laundering_rows_in_test": 396,
+ "laundering_rows_covered_by_patterns": 68,
+ "by_type": {
+  "BIPARTITE": {
+   "attempts": 5,
+   "detected": 3
+  },
+  "CYCLE": {
+   "attempts": 6,
+   "detected": 3
+  },
+  "FAN-IN": {
+   "attempts": 2,
+   "detected": 2
+  },
+  "FAN-OUT": {
+   "attempts": 4,
+   "detected": 2
+  },
+  "GATHER-SCATTER": {
+   "attempts": 7,
+   "detected": 5
+  },
+  "RANDOM": {
+   "attempts": 3,
+   "detected": 1
+  },
+  "SCATTER-GATHER": {
+   "attempts": 6,
+   "detected": 6
+  },
+  "STACK": {
+   "attempts": 4,
+   "detected": 1
+  }
+ },
+ "status": "VERIFIED",
+ "notes": [
+  "Stream time with minute-resolution timestamps; a delay of 0 means the attempt was flagged in the minute it started.",
+  "Delay is measured from the attempt's first payment, which may be earlier than its first flagged payment.",
+  "Standard (file-order) model; the deployed model. Attempts starting before the test window are excluded.",
+  "Not every laundering row in the data belongs to a listed pattern (IBM's patterns file lists the typed attempts)."
+ ]
+}

@@ -128,6 +128,7 @@ def test_evidence_reads_eval_files_and_marks_missing(client):
     ev = client.get("/evidence").json()
     assert ev["metrics"] and ev["report"] and "C: MuleTrace network model" in ev["report"]["models"]
     assert ev["latency"] is None                    # not measured in the fixture run -> null, never invented
+    assert ev["detection_delay"] is None and ev["egress"] is None
 
 
 def test_alert_sort_and_latency_percentiles(client):

@@ -582,7 +582,8 @@ function sigItem(x){ const up = x.direction === "raises risk";
   return `<li>${esc(x.text)} <span style="color:${up ? "var(--hold)" : "var(--pass)"};font-size:var(--f-xs);font-weight:700">${up ? "▲ raises risk" : "▼ lowers risk"}</span> <span class="meta">(${x.contribution > 0 ? "+" : ""}${Number(x.contribution).toFixed(2)})</span></li>`; }
 function cardLines(a){   // queue card: first ring pattern, then the top network signal (or the top signal)
   const up = signals(a).filter(x => x.direction === "raises risk"), top = up.find(x => x.group === "network") || up[0];
-  const lines = ruleReasons(a).slice(0, 1); if(top && !lines.includes(top.text)) lines.push(top.text);
+  const lines = ruleReasons(a).slice(0, 1);
+  if(top && !lines.includes(top.text)) lines.push(top.group === "payment" ? "Context: " + top.text : top.text);
   return lines.length ? lines : (a.reasons || []).slice(0, 2);
 }
 
@@ -859,6 +860,14 @@ async function loadEvidence(){
       ${cDays.map(d => `<tr><td>${esc(d.day)}</td><td class="r">${num(d.payments)}</td><td class="r">${num(d.laundering)}</td><td class="r">${fx(d.pr_auc,4)}</td><td class="r">${pct(d.recall)}</td><td class="r">${num(d.flagged)}</td></tr>`).join("")}</tbody></table></div></div>`;
   }
   const c = models.find(m => m.model.startsWith("C")), a = models.find(m => m.model.startsWith("A"));
+  const DD = ev.detection_delay;
+  h += `<div class="card" style="margin-top:var(--s3)"><h2>Time to detect: IBM-labelled laundering attempts</h2><div class="cb">${DD ? `
+    <div class="grid kpis" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr))">
+      <div class="kpi"><div class="l">Attempts detected</div><div class="v">${DD.detected_pct}%</div><div class="h">${DD.attempts_detected} of ${DD.attempts_in_test_window} attempts starting in the test window</div></div>
+      <div class="kpi"><div class="l">Median delay</div><div class="v">${DD.delay_minutes.median} min</div><div class="h">first payment → first FLAG/HOLD (stream time)</div></div>
+      <div class="kpi"><div class="l">90th percentile</div><div class="v">${Math.round(DD.delay_minutes.p90)} min</div><div class="h">max ${Math.round(DD.delay_minutes.max)} min</div></div>
+      <div class="kpi"><div class="l">Pattern match</div><div class="v">${Math.round(DD.match_rate*100)}%</div><div class="h">${esc(DD.status.split(":")[0])} · ${DD.laundering_rows_covered_by_patterns} of ${DD.laundering_rows_in_test} laundering rows are in listed attempts</div></div>
+    </div><p class="meta" style="margin:var(--s2) 0 0">Source: eval/detection_delay.json (bench/detection_delay.py, deployed model, minute timestamps). A delay of 0 means flagged in the minute the attempt started; the standard model may benefit from within-minute order.</p>` : '<div class="meta">Not measured: eval/detection_delay.json not found.</div>'}</div></div>`;
   const L = ev.latency, row = (name, s) => `<tr><td>${name}</td><td class="r">${s?fx(s.p50,2):"not measured"}</td><td class="r">${s?fx(s.p95,2):"–"}</td><td class="r">${s?fx(s.p99,2):"–"}</td><td class="r">${s?num(s.n):"–"}</td></tr>`;
   const http = L && L.http_50rps;
   h += `<div class="card" style="margin-top:var(--s3)"><h2>Latency (ms)</h2><div class="tw"><table><thead><tr><th>Measurement</th><th class="r">p50</th><th class="r">p95</th><th class="r">p99</th><th class="r">n</th></tr></thead><tbody>
@@ -921,6 +930,13 @@ function machinePill(){
 
 // ---------- overview ----------
 let ovLoaded = false;
+function headline(ev){           // conservative (order-shuffled) result first, standard run as upper bound; from eval/ files
+  const c = ev && (ev.metrics_shuf || []).find(m => m.model.startsWith("C")), a = ev && (ev.metrics_shuf || []).find(m => m.model.startsWith("A"));
+  const u = ev && (ev.metrics || []).find(m => m.model.startsWith("C")), d = ev && ev.detection_delay;
+  if(!c || !a) return '<span>results: <b>not measured</b></span>';
+  return `<span>conservative PR-AUC <b>${fx(c.pr_auc,3)}</b> vs ${fx(a.pr_auc,3)} transaction-only (order-shuffled; upper bound ${u ? fx(u.pr_auc,3) : "–"})</span>`
+    + (d ? `<span>labelled attempts detected <b>${d.detected_pct}%</b> · median <b>${d.delay_minutes.median} min</b></span>` : "");
+}
 async function loadOverview(){
   if(mode === "demo"){ $("ovStrip").innerHTML = '<span class="pill warn">DEMO</span><span>Recorded sample from the first model on the LinuxONE VM; platform facts need the live API.</span>'; return; }
   if(ovLoaded || mode !== "live") return;
@@ -931,7 +947,7 @@ async function loadOverview(){
       <span><b>${esc(s.arch)}</b> · ${esc(s.byteorder)}-endian</span>
       <span>decision p50 <b>${L ? fx(L.inproc.all.p50,2) + " ms" : "not measured"}</b>${L ? " (eval/latency.json)" : ""}</span>
       <span>outbound calls: <b>none</b> (declared)</span>
-      <span>NNPA <b>${s.nnpa ? "present" : "not detected"}</b> · model runs on CPU</span>`;
+      <span>NNPA <b>${s.nnpa ? "present" : "not detected"}</b> · model runs on CPU</span>${headline(ev)}`;
     ovLoaded = true;
   }catch(e){ $("ovStrip").innerHTML = `<span style="color:var(--hold)">Could not read platform facts: ${esc(e.message)}</span> <button class="btn ghost" id="ovRetry">Retry</button>`; $("ovRetry").onclick = loadOverview; }
 }
