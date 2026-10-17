@@ -1,5 +1,7 @@
 # MuleTrace API
 
+> **Outdated (pre-hardening).** Decisions are now PASS / FLAG / HOLD, write endpoints may need `X-MuleTrace-Token`, and responses include `explanations`, `simulated` and `recommendation`. See the API section of the README and the live schema at `/docs`.
+
 MuleTrace is a FastAPI application that detects suspicious money movement and potential money-laundering activity. It scores payments in real time and assigns one of three decisions: `ALLOW`, `REVIEW`, or `HOLD`. Each decision includes simple explanations to help analysts understand the risk.
 
 All requests and responses use JSON. The sample data shows an average scoring time of approximately 1.5 milliseconds per payment.
