@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MuleTrace — Investigator Console</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.9/standalone/umd/vis-network.min.js"></script>
+<style>
+:root{--bg:#0b0f17;--panel:#121826;--panel2:#171f30;--line:#25304a;--text:#e6ebf5;--mute:#8b97b3;--red:#ef4444;--orange:#f59e0b;--green:#22c55e;--blue:#4f8cff;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--text);font:14px/1.45 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;min-height:100vh}
+a{color:var(--blue)}
+header{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:18px;flex-wrap:wrap;padding:10px 22px;border-bottom:1px solid var(--line);background:var(--panel)}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:17px}
+.logo{width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#ef4444,#4f8cff);display:grid;place-items:center;font-size:14px}
+nav{display:flex;gap:4px;flex-wrap:wrap}
+nav button{background:none;color:var(--mute);border:0;padding:8px 12px;border-radius:7px;font-weight:600;font-size:13px;cursor:pointer}
+nav button:hover{color:var(--text);background:var(--panel2)}
+nav button.on{color:var(--text);background:var(--panel2);box-shadow:inset 0 -2px 0 var(--blue)}
+.hright{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.pill{font-size:12px;padding:3px 10px;border-radius:999px;border:1px solid var(--line);color:var(--mute);white-space:nowrap}
+.pill.live{color:var(--green);border-color:var(--green)}
+.pill.demo{color:var(--orange);border-color:var(--orange)}
+.pill.ibm{color:var(--green);border-color:var(--green);background:rgba(34,197,94,.1);font-weight:700}
+.wrap{padding:18px 22px 40px;max-width:1500px;margin:0 auto}
+.page{display:none}.page.on{display:block}
+h2.pt{margin:0 0 4px;font-size:20px}
+.sub{color:var(--mute);margin:0 0 16px}
+.grid{display:grid;gap:14px}
+.kpis{grid-template-columns:repeat(5,1fr)}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 16px}
+.stat .l{color:var(--mute);font-size:11.5px;text-transform:uppercase;letter-spacing:.6px}
+.stat .v{font-size:26px;font-weight:700;margin-top:2px;font-variant-numeric:tabular-nums}
+.stat .h{color:var(--mute);font-size:12px}
+.stat.hold .v{color:var(--red)}.stat.review .v{color:var(--orange)}.stat.fast .v{color:var(--green)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;min-width:0}
+.card>h3{margin:0;padding:11px 16px;font-size:12.5px;text-transform:uppercase;letter-spacing:.7px;color:var(--mute);border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:8px}
+.cb{padding:14px 16px}
+.two{grid-template-columns:minmax(300px,380px) 1fr;margin-top:14px}
+.badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:700;letter-spacing:.4px}
+.b-HOLD{background:var(--red);color:#fff}.b-REVIEW{background:var(--orange);color:#1a1200}.b-ALLOW{background:rgba(34,197,94,.15);color:var(--green)}
+.b-st{background:var(--panel2);color:var(--mute);border:1px solid var(--line)}
+button.btn{border:0;border-radius:7px;padding:8px 14px;font-weight:700;font-size:13px;cursor:pointer;color:#fff;background:var(--blue)}
+button.btn:disabled{opacity:.4;cursor:not-allowed}
+button.ghost{background:var(--panel2);color:var(--text);border:1px solid var(--line)}
+.confirm{background:#dc2626!important}.dismiss{background:#475569!important}.escalate{background:#d97706!important}
+label{display:block;color:var(--mute);font-size:12px;margin:10px 0 4px}
+input,select,textarea{width:100%;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:7px;padding:8px 10px;font:inherit}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--blue);border-color:transparent}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.mix{display:flex;height:12px;border-radius:6px;overflow:hidden;background:var(--panel2);margin:6px 0 8px}
+.mix i{display:block;height:100%}
+.legend{display:flex;gap:14px;flex-wrap:wrap;color:var(--mute);font-size:12px}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+table{width:100%;border-collapse:collapse}
+th{color:var(--mute);font-size:11.5px;text-transform:uppercase;letter-spacing:.5px;text-align:left;font-weight:600;padding:8px 10px;border-bottom:1px solid var(--line)}
+td{padding:7px 10px;border-bottom:1px solid #1b2336;font-variant-numeric:tabular-nums}
+.mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px}
+.feed{max-height:440px;overflow:auto}
+.feed tr.new{animation:flash 1.2s}
+@keyframes flash{from{background:rgba(79,140,255,.18)}to{background:transparent}}
+.sbar{display:inline-block;width:70px;height:6px;background:var(--panel2);border-radius:3px;vertical-align:middle;margin-right:6px;overflow:hidden}
+.sbar i{display:block;height:100%}
+.list{max-height:calc(100vh - 290px);min-height:300px;overflow:auto;padding:8px}
+.alert{background:var(--panel2);border:1px solid var(--line);border-left:4px solid var(--orange);border-radius:8px;padding:10px 12px;margin-bottom:8px;cursor:pointer}
+.alert.HOLD{border-left-color:var(--red)}
+.alert:hover{border-color:var(--blue)}
+.alert.sel{outline:2px solid var(--blue)}
+.r1{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.amt{font-weight:700;font-size:15px}
+.acc{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;color:var(--mute);margin-top:4px;word-break:break-all}
+.reasons{margin:6px 0 0;padding-left:18px;color:#c3cce0;font-size:12.5px}
+.reasons li{margin:2px 0}
+.meta{color:var(--mute);font-size:11.5px}
+.empty{color:var(--mute);padding:30px;text-align:center}
+#graph{height:430px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:#0e1420}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.seg button{background:none;border:0;color:var(--mute);padding:6px 10px;font-size:12.5px;font-weight:600;cursor:pointer}
+.seg button.on{background:var(--panel2);color:var(--text)}
+.result{margin-top:14px;padding:16px;border-radius:10px;border:1px solid var(--line);background:var(--panel2)}
+.big{font-size:30px;font-weight:800}
+.bars .b{margin:10px 0}
+.bars .bl{display:flex;justify-content:space-between;font-size:12.5px;color:var(--mute)}
+.bars .bt{height:14px;background:var(--panel2);border-radius:4px;overflow:hidden;margin-top:3px}
+.bars .bt i{display:block;height:100%;border-radius:4px}
+tr.best td{color:var(--text);font-weight:700;background:rgba(79,140,255,.08)}
+.flow{display:flex;align-items:stretch;gap:8px;flex-wrap:wrap}
+.flow .s{flex:1;min-width:130px;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:10px 12px}
+.flow .s b{display:block;margin-bottom:3px}
+.flow .s span{color:var(--mute);font-size:12px}
+.flow .ar{align-self:center;color:var(--mute)}
+.kv{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.note{color:var(--mute);font-size:12.5px;margin-top:10px}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--line);padding:10px 16px;border-radius:8px;display:none;z-index:50}
+@media(max-width:1000px){.kpis{grid-template-columns:repeat(2,1fr)}.two{grid-template-columns:1fr}.kv{grid-template-columns:1fr}.list{max-height:420px}}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><div class="logo">⛓</div>MuleTrace</div>
+  <nav id="nav">
+    <button data-p="monitor" class="on">Live Monitor</button>
+    <button data-p="investigate">Investigate <span id="navCount" class="meta"></span></button>
+    <button data-p="score">Score a Payment</button>
+    <button data-p="results">Model Results</button>
+    <button data-p="system">IBM Z System</button>
+  </nav>
+  <div class="hright">
+    <span id="src" class="pill">connecting…</span>
+    <span id="ibm" class="pill ibm">● IBM Z</span>
+  </div>
+</header>
+
+<div class="wrap">
+
+<!-- ============ LIVE MONITOR ============ -->
+<section class="page on" id="p-monitor">
+  <h2 class="pt">Live payment monitor</h2>
+  <p class="sub">Every payment is scored the moment it arrives: <b style="color:var(--green)">ALLOW</b>, <b style="color:var(--orange)">REVIEW</b> or <b style="color:var(--red)">HOLD</b>.</p>
+  <div class="grid kpis">
+    <div class="stat"><div class="l">Payments scored</div><div class="v" id="kScored">–</div><div class="h" id="kRate">– per second</div></div>
+    <div class="stat fast"><div class="l">Avg decision time</div><div class="v" id="kMs">–</div><div class="h">milliseconds on IBM Z</div></div>
+    <div class="stat review"><div class="l">Review</div><div class="v" id="kReview">–</div><div class="h">sent to an investigator</div></div>
+    <div class="stat hold"><div class="l">Hold</div><div class="v" id="kHold">–</div><div class="h">stopped before money moves</div></div>
+    <div class="stat"><div class="l">Flag rate</div><div class="v" id="kFlag">–</div><div class="h">of all payments</div></div>
+  </div>
+
+  <div class="grid two">
+    <div class="card">
+      <h3>Payment stream</h3>
+      <div class="cb">
+        <div class="meta">Plays the held-out test payments (never seen in training) into the live system, like a bank's real payment feed.</div>
+        <label>Speed</label>
+        <div class="seg" id="speed"><button data-v="20">20/s</button><button data-v="50" class="on">50/s</button><button data-v="100">100/s</button><button data-v="200">200/s</button></div>
+        <div class="row" style="margin-top:14px">
+          <button class="btn" id="startBtn">▶ Start stream</button>
+          <button class="btn ghost" id="stopBtn">■ Stop</button>
+        </div>
+        <div class="note" id="replayInfo">Stream is stopped.</div>
+        <label style="margin-top:18px">Decision mix</label>
+        <div class="mix" id="mix"></div>
+        <div class="legend"><span><i class="dot" style="background:var(--green)"></i>Allow <b id="mA">–</b></span><span><i class="dot" style="background:var(--orange)"></i>Review <b id="mR">–</b></span><span><i class="dot" style="background:var(--red)"></i>Hold <b id="mH">–</b></span></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Live decisions <span class="meta" style="text-transform:none;letter-spacing:0">newest first · <label style="display:inline;margin:0"><input type="checkbox" id="onlyFlag" style="width:auto;vertical-align:-2px"> flagged only</label></span></h3>
+      <div class="feed"><table><thead><tr><th>Decision</th><th>Risk</th><th>From → To</th><th style="text-align:right">Amount</th><th style="text-align:right">Time</th></tr></thead><tbody id="feed"></tbody></table>
+      <div class="empty" id="feedEmpty">No payments yet. Press <b>Start stream</b>.</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ INVESTIGATE ============ -->
+<section class="page" id="p-investigate">
+  <h2 class="pt">Investigation queue</h2>
+  <p class="sub">Highest risk first. Open an alert to trace the money and record your decision.</p>
+  <div class="row" style="margin-bottom:12px">
+    <div class="seg" id="fStatus"><button data-v="open" class="on">Open</button><button data-v="confirm">Confirmed</button><button data-v="escalate">Escalated</button><button data-v="dismiss">Dismissed</button><button data-v="all">All</button></div>
+    <div class="seg" id="fDec"><button data-v="all" class="on">All</button><button data-v="HOLD">Hold</button><button data-v="REVIEW">Review</button></div>
+  </div>
+  <div class="grid two" style="margin-top:0">
+    <div class="card"><h3>Alerts <span id="aCount"></span></h3><div class="list" id="list"></div></div>
+    <div class="card" id="detail">
+      <h3>Case</h3>
+      <div class="empty" id="ph">Select an alert to trace its money flow.</div>
+      <div id="case" style="display:none">
+        <div class="cb">
+          <div class="r1"><div><span id="cBadge"></span> <span class="big" id="cAmt" style="font-size:22px;margin-left:6px"></span></div><div class="meta" id="cMeta"></div></div>
+          <div class="acc" style="font-size:12.5px;margin-top:8px"><b id="cSrc"></b> → <b id="cDst"></b></div>
+          <ul class="reasons" id="cReasons" style="font-size:13.5px"></ul>
+        </div>
+        <div id="graph"></div>
+        <div class="cb">
+          <div class="legend" style="margin-bottom:10px"><span><i class="dot" style="background:#4f8cff"></i>Paid the sender</span><span><i class="dot" style="background:#ef4444"></i>Flagged payment</span><span><i class="dot" style="background:#22c55e"></i>Received money onward</span><span id="gInfo"></span></div>
+          <label>Investigator note (optional)</label>
+          <textarea id="cNote" rows="2" maxlength="500" placeholder="e.g. Account opened last week, matches known mule pattern"></textarea>
+          <div class="row" style="margin-top:10px">
+            <button class="btn confirm" data-a="confirm">Confirm laundering</button>
+            <button class="btn escalate" data-a="escalate">Escalate</button>
+            <button class="btn dismiss" data-a="dismiss">Dismiss</button>
+            <span class="meta" id="cStatus"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SCORE ============ -->
+<section class="page" id="p-score">
+  <h2 class="pt">Score a payment</h2>
+  <p class="sub">Send one payment to the live model and see the decision, the reasons and the time taken.</p>
+  <div class="grid two" style="margin-top:0">
+    <div class="card"><h3>Payment</h3><div class="cb">
+      <div class="row"><button class="btn ghost" id="exNormal">Example: normal</button><button class="btn ghost" id="exHub">Example: busy hub account</button></div>
+      <label>From account</label><input id="fSrc" class="mono" value="0118_8000C6C40">
+      <label>To account</label><input id="fDst" class="mono" value="0038478_80E47CF60">
+      <div class="row"><div style="flex:1"><label>Amount</label><input id="fAmt" type="number" min="0.01" step="0.01" value="2365.85"></div>
+      <div style="flex:1"><label>Payment type</label><select id="fFmt"><option>ACH</option><option>Wire</option><option>Cheque</option><option>Credit Card</option><option>Cash</option><option>Bitcoin</option><option>Reinvestment</option></select></div></div>
+      <div class="row"><div style="flex:1"><label>Currency paid</label><select id="fCur"></select></div><div style="flex:1"><label>Currency received</label><select id="fCur2"></select></div></div>
+      <label>Date and time</label><input id="fTs" value="2022-09-03 14:31">
+      <button class="btn" id="scoreBtn" style="margin-top:14px;width:100%">Score payment</button>
+      <div class="note">Scored payments become part of the live history, exactly like real traffic.</div>
+    </div></div>
+    <div class="card"><h3>Decision</h3><div class="cb" id="scoreOut"><div class="empty">The result appears here.</div></div></div>
+  </div>
+</section>
+
+<!-- ============ RESULTS ============ -->
+<section class="page" id="p-results">
+  <h2 class="pt">Does it work? Tested on 400,000 future payments</h2>
+  <p class="sub">2 million IBM AML payments, split by time: first 60% to train, next 20% to tune, last 20% to test. The model never sees the future.</p>
+  <div class="grid" style="grid-template-columns:1fr 1fr">
+    <div class="card"><h3>Laundering caught (same ~1% review budget)</h3><div class="cb bars" id="barRecall"></div></div>
+    <div class="card"><h3>PR-AUC (overall ranking quality)</h3><div class="cb bars" id="barAuc"></div></div>
+  </div>
+  <div class="card" style="margin-top:14px"><h3>Full comparison</h3>
+    <div style="overflow:auto"><table><thead><tr><th>System</th><th>PR-AUC</th><th>Laundering caught</th><th>Precision</th><th>Payments reviewed</th><th>False alarms / 1,000</th></tr></thead><tbody id="mTable"></tbody></table></div>
+    <div class="cb note" id="mNote"></div>
+  </div>
+</section>
+
+<!-- ============ SYSTEM ============ -->
+<section class="page" id="p-system">
+  <h2 class="pt">Running on IBM Z</h2>
+  <p class="sub">Live facts read from the machine this console is connected to.</p>
+  <div class="kv" id="sysKv"></div>
+  <div class="card" style="margin-top:14px"><h3>How a payment flows</h3><div class="cb">
+    <div class="flow">
+      <div class="s"><b>1 · Payment arrives</b><span>From the bank's payment stream</span></div><div class="ar">→</div>
+      <div class="s"><b>2 · Flow memory</b><span>Last 60 minutes of money movement per account</span></div><div class="ar">→</div>
+      <div class="s"><b>3 · Network signals</b><span id="sigCount">Senders, forwarding speed, loops, bursts</span></div><div class="ar">→</div>
+      <div class="s"><b>4 · AI decision</b><span>ALLOW / REVIEW / HOLD + reasons</span></div><div class="ar">→</div>
+      <div class="s"><b>5 · Investigator</b><span>Confirm, escalate or dismiss</span></div>
+    </div>
+    <div class="note">Everything runs on one IBM LinuxONE machine. No payment data is sent to any outside service.</div>
+  </div></div>
+</section>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ---------- config ----------
+const qs = new URLSearchParams(location.search);
+const API = qs.get("api") || (location.protocol.startsWith("http") && location.port ? "" : "http://localhost:8000");
+
+// Offline sample (real outputs from our API) used only when the API cannot be reached
+const SAMPLE_ALERTS = [{"id":11,"ts":27702196,"src":"0210575_806A8FB00","dst":"0215841_80F1BB2B0","amount":1292091.71,"score":0.9957,"decision":"HOLD","reasons":["Sender is passing on 100% of money it received 0 min ago"],"status":"open"},{"id":25,"ts":27702199,"src":"021745_803366440","dst":"0021615_8036AE1C0","amount":43038.53,"score":0.993,"decision":"HOLD","reasons":["Sender is passing on 100% of money it received 0 min ago"],"status":"open"},{"id":15,"ts":27702196,"src":"0332461_80BCDC4A0","dst":"0021142_80BCCCED0","amount":301.5,"score":0.9898,"decision":"HOLD","reasons":["AI risk score 99/100, similar to known laundering"],"status":"open"},{"id":13,"ts":27702196,"src":"070_1004286A8","dst":"01490_8019BD7D0","amount":5215.78,"score":0.9573,"decision":"REVIEW","reasons":["Sender is passing on 100% of money it received 4 min ago","Sender paid 413 different accounts in the last hour"],"status":"open"},{"id":5,"ts":27702195,"src":"070_1004286A8","dst":"021749_802E96820","amount":5958.85,"score":0.9313,"decision":"REVIEW","reasons":["Sender is passing on 100% of money it received 3 min ago","Sender paid 415 different accounts in the last hour"],"status":"open"},{"id":20,"ts":27702197,"src":"0118_8000C6C40","dst":"0038478_80E47CF60","amount":2365.85,"score":0.877,"decision":"REVIEW","reasons":["AI risk score 88/100, similar to known laundering"],"status":"open"},{"id":26,"ts":27702199,"src":"0223635_812D9FD20","dst":"0143508_8130D6F60","amount":603.02,"score":0.7717,"decision":"REVIEW","reasons":["Receiver got money from 36 different accounts in the last hour","15 payments hit the receiver within 10 minutes"],"status":"open"}];
+const SAMPLE_STATS = {"scored":3000,"allow":2972,"review":24,"hold":4,"avg_ms":1.46,"per_sec":0,"replay":{"running":false,"pos":0,"total":400000}};
+const SAMPLE_SYSTEM = {"arch":"s390x","byteorder":"big","python":"3.12.3","nnpa":true,"machine_type":"9175","cpus":3,"data_egress":"none","features":20};
+const SAMPLE_METRICS = [{"model":"A: transaction-only model","pr_auc":0.0094,"recall":0.194,"precision":0.016,"review_pct":1.18,"fp_per_1000":11.62},{"model":"B: simple rules","pr_auc":0.0021,"recall":0.003,"precision":0.0,"review_pct":1.17,"fp_per_1000":11.68},{"model":"C: MuleTrace network model","pr_auc":0.2188,"recall":0.457,"precision":0.05,"review_pct":0.9,"fp_per_1000":8.57}];
+const CURRENCIES = ["US Dollar","Euro","UK Pound","Yuan","Yen","Rupee","Swiss Franc","Canadian Dollar","Australian Dollar","Mexican Peso","Brazil Real","Ruble","Shekel","Saudi Riyal","Bitcoin"];
+const MACHINES = {"9175":"IBM z17","9176":"IBM z17","3931":"IBM z16","3932":"IBM z16","8561":"IBM z15","8562":"IBM z15"};
+
+// ---------- helpers ----------
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const money = n => "$" + Number(n).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+const num = n => Number(n).toLocaleString();
+const short = a => a && a.length > 20 ? a.slice(0,9) + "…" + a.slice(-7) : a;
+const riskColor = s => s >= 0.9 ? "var(--red)" : s >= 0.5 ? "var(--orange)" : "var(--green)";
+let demo = false, page = "monitor";
+function toast(msg){ const t=$("toast"); t.textContent=msg; t.style.display="block"; clearTimeout(t._h); t._h=setTimeout(()=>t.style.display="none",2600); }
+
+async function api(path, opts={}){
+  const ctl = new AbortController(); const t = setTimeout(()=>ctl.abort(), 4000);
+  try{
+    const r = await fetch(API + path, {...opts, signal: ctl.signal, headers: {"Content-Type":"application/json"}});
+    const body = await r.json().catch(()=> ({}));
+    if(!r.ok){ const e = new Error(typeof body.detail === "string" ? body.detail : ("Error " + r.status)); e.http = true; throw e; }
+    return body;
+  } finally { clearTimeout(t); }
+}
+function setMode(isDemo){
+  demo = isDemo;
+  $("src").textContent = isDemo ? "DEMO DATA · API offline" : "LIVE";
+  $("src").className = "pill " + (isDemo ? "demo" : "live");
+  ["startBtn","stopBtn","scoreBtn"].forEach(id => $(id).disabled = isDemo);
+}
+function segment(id, cb){
+  $(id).addEventListener("click", e => { const b = e.target.closest("button"); if(!b) return;
+    [...$(id).children].forEach(x => x.classList.toggle("on", x===b)); cb(b.dataset.v); });
+}
+const segVal = id => $(id).querySelector(".on").dataset.v;
+
+// ---------- navigation ----------
+function show(p){
+  page = p;
+  document.querySelectorAll("#nav button").forEach(b => b.classList.toggle("on", b.dataset.p===p));
+  document.querySelectorAll(".page").forEach(s => s.classList.toggle("on", s.id==="p-"+p));
+  if(location.hash !== "#"+p) history.replaceState(null, "", "#"+p);
+  if(p==="investigate") loadAlerts();
+  if(p==="results") loadMetrics();
+  if(p==="system") loadSystem();
+  if(p==="investigate" && network) setTimeout(()=>network.fit(), 50);
+}
+$("nav").addEventListener("click", e => { const b = e.target.closest("button"); if(b) show(b.dataset.p); });
+
+// ---------- live monitor ----------
+let seen = new Set();
+function renderStats(s){
+  $("kScored").textContent = num(s.scored||0);
+  $("kRate").textContent = (s.per_sec ?? 0) + " per second";
+  $("kMs").textContent = s.avg_ms ? Number(s.avg_ms).toFixed(2) : "–";
+  $("kReview").textContent = num(s.review||0);
+  $("kHold").textContent = num(s.hold||0);
+  const flagged = (s.review||0) + (s.hold||0);
+  $("kFlag").textContent = s.scored ? (flagged / s.scored * 100).toFixed(2) + "%" : "–";
+  const allow = s.allow ?? Math.max(0, (s.scored||0) - flagged), tot = Math.max(1, allow + flagged);
+  $("mix").innerHTML = `<i style="width:${allow/tot*100}%;background:var(--green)"></i><i style="width:${Math.max((s.review||0)/tot*100, s.review?0.6:0)}%;background:var(--orange)"></i><i style="width:${Math.max((s.hold||0)/tot*100, s.hold?0.6:0)}%;background:var(--red)"></i>`;
+  $("mA").textContent = num(allow); $("mR").textContent = num(s.review||0); $("mH").textContent = num(s.hold||0);
+  const r = s.replay || {};
+  $("replayInfo").innerHTML = r.running ? `<b style="color:var(--green)">● Streaming</b> at ${r.speed}/s · ${num(r.pos)} of ${num(r.total)} test payments played`
+    : (r.pos ? `Stopped · ${num(r.pos)} of ${num(r.total||400000)} test payments played` : "Stream is stopped.");
+  $("startBtn").disabled = demo || !!r.running; $("stopBtn").disabled = demo || !r.running;
+  const open = s.by_status ? (s.by_status.open||0) : null;
+  $("navCount").textContent = open ? "(" + num(open) + ")" : "";
+}
+function renderFeed(rows){
+  const only = $("onlyFlag").checked;
+  rows = rows.filter(r => !only || r.decision !== "ALLOW").slice(0, 80);
+  $("feedEmpty").style.display = rows.length ? "none" : "block";
+  $("feed").innerHTML = rows.map(r => {
+    const k = r.txn_id + "|" + r.src + "|" + r.amount, isNew = !seen.has(k); seen.add(k);
+    return `<tr class="${isNew?"new":""}" ${r.alert_id?`style="cursor:pointer" data-alert="${r.alert_id}"`:""}>
+      <td><span class="badge b-${r.decision}">${r.decision}</span></td>
+      <td><span class="sbar"><i style="width:${Math.round(r.score*100)}%;background:${riskColor(r.score)}"></i></span>${Math.round(r.score*100)}</td>
+      <td class="mono">${esc(short(r.src))} → ${esc(short(r.dst))}</td>
+      <td style="text-align:right">${money(r.amount)}</td>
+      <td style="text-align:right" class="meta">${r.latency_ms!=null ? r.latency_ms + " ms" : ""}</td></tr>`; }).join("");
+  if(seen.size > 3000) seen = new Set([...seen].slice(-1000));
+}
+$("feed").addEventListener("click", e => { const tr = e.target.closest("tr[data-alert]"); if(tr){ show("investigate"); openAlert(Number(tr.dataset.alert)); }});
+$("onlyFlag").addEventListener("change", () => tick());
+segment("speed", () => {});
+$("startBtn").onclick = async () => {
+  try{ await api("/replay/start", {method:"POST", body: JSON.stringify({n: 400000, speed: Number(segVal("speed"))})}); toast("Payment stream started"); tick(); }
+  catch(e){ toast(e.message); }
+};
+$("stopBtn").onclick = async () => { try{ await api("/replay/stop", {method:"POST"}); toast("Stream stopping"); setTimeout(tick, 400); } catch(e){ toast(e.message); } };
+
+async function tick(){
+  try{
+    const [s, rec] = await Promise.all([api("/stats"), api("/recent?limit=80")]);
+    setMode(false); renderStats(s); renderFeed(rec);
+  }catch(e){
+    if(e.http) return;
+    setMode(true); renderStats(SAMPLE_STATS);
+    renderFeed(SAMPLE_ALERTS.map(a => ({...a, txn_id: a.id})));
+  }
+}
+
+// ---------- investigate ----------
+let alerts = [], selected = null, network = null;
+segment("fStatus", loadAlerts); segment("fDec", loadAlerts);
+async function loadAlerts(){
+  const st = segVal("fStatus"), dec = segVal("fDec");
+  if(demo){
+    alerts = SAMPLE_ALERTS.filter(a => (st==="all"||a.status===st) && (dec==="all"||a.decision===dec));
+  } else {
+    try{ alerts = await api(`/alerts?limit=200&status=${st}&decision=${dec}`); }catch(e){ if(!e.http){ setMode(true); return loadAlerts(); } toast(e.message); return; }
+  }
+  renderList();
+}
+function renderList(){
+  $("aCount").textContent = alerts.length + (alerts.length===200 ? "+" : "");
+  if(!alerts.length){ $("list").innerHTML = '<div class="empty">No alerts here.<br>Start the payment stream on the Live Monitor.</div>'; return; }
+  $("list").innerHTML = alerts.map(a => `
+    <div class="alert ${a.decision} ${selected&&selected.id===a.id?"sel":""}" data-id="${a.id}">
+      <div class="r1"><span><span class="badge b-${a.decision}">${a.decision}</span> ${a.status!=="open"?`<span class="badge b-st">${esc(a.status)}</span>`:""}</span>
+        <span class="amt">${money(a.amount)}</span><span class="meta">risk ${Math.round(a.score*100)}</span></div>
+      <div class="acc">${esc(a.src)} → ${esc(a.dst)}</div>
+      <ul class="reasons">${(a.reasons||[]).slice(0,2).map(r=>`<li>${esc(r)}</li>`).join("")}</ul>
+    </div>`).join("");
+}
+$("list").addEventListener("click", e => { const el = e.target.closest(".alert"); if(el) openAlert(Number(el.dataset.id)); });
+
+async function openAlert(id){
+  let a = alerts.find(x => x.id===id);
+  if(!a && !demo){ try{ a = await api("/alerts/" + id); }catch(e){ toast(e.message); return; } }
+  if(!a) return;
+  selected = a; renderList();
+  $("ph").style.display = "none"; $("case").style.display = "block";
+  $("cBadge").innerHTML = `<span class="badge b-${a.decision}">${a.decision}</span>`;
+  $("cAmt").textContent = money(a.amount);
+  $("cMeta").textContent = `Risk ${Math.round(a.score*100)}/100` + (a.fmt ? " · " + a.fmt : "") + (a.currency ? " · " + a.currency : "");
+  $("cSrc").textContent = a.src; $("cDst").textContent = a.dst;
+  $("cReasons").innerHTML = (a.reasons||[]).map(r => `<li>${esc(r)}</li>`).join("");
+  $("cNote").value = a.note || "";
+  $("cStatus").textContent = a.status !== "open" ? "Current status: " + a.status : "";
+  drawCase(a);
+}
+async function drawCase(a){
+  let gs, gd;
+  if(demo){ gs = {edges:[]}; gd = {edges:[]}; }
+  else { try{ [gs, gd] = await Promise.all([api(`/graph/${encodeURIComponent(a.src)}?limit=10`), api(`/graph/${encodeURIComponent(a.dst)}?limit=10`)]); }catch(e){ gs={edges:[]}; gd={edges:[]}; } }
+  if(!window.vis){ $("graph").innerHTML = '<div class="empty">Graph library could not load (no internet).</div>'; return; }
+  const nodes = new Map(), edges = new Map();
+  const node = (id, level, color, size=13) => { if(!nodes.has(id)) nodes.set(id, {id, level, label: short(id), title: id, size, color:{background:color,border:"#0b0f17"}, font:{color:"#e6ebf5",size:11,face:"monospace"}}); };
+  const edge = (f, t, amt, cnt, hi) => { const k=f+"|"+t; if(edges.has(k) && !hi) return;
+    edges.set(k, {from:f, to:t, arrows:"to", label: money(amt) + (cnt>1?` ×${cnt}`:""), width: hi?4:Math.min(1+Math.log10(1+amt/500),4),
+      color:{color: hi?"#ef4444":"#4a5878"}, font:{color: hi?"#fca5a5":"#8b97b3", size:10, strokeWidth:3, strokeColor:"#0e1420"}, smooth:{type:"cubicBezier",forceDirection:"horizontal"}}); };
+  node(a.src, 1, "#ef4444", 22); node(a.dst, 2, "#ef4444", 22);
+  (gs.edges||[]).forEach(e => { if(e.to===a.src){ node(e.from, 0, "#4f8cff"); edge(e.from, a.src, e.amount, e.count); } else if(e.from===a.src && e.to!==a.dst){ node(e.to, 2, "#22c55e"); edge(a.src, e.to, e.amount, e.count); } });
+  (gd.edges||[]).forEach(e => { if(e.from===a.dst){ node(e.to, 3, "#22c55e"); edge(a.dst, e.to, e.amount, e.count); } else if(e.to===a.dst && e.from!==a.src){ node(e.from, 1, "#4f8cff"); edge(e.from, a.dst, e.amount, e.count); } });
+  edge(a.src, a.dst, a.amount, 1, true);
+  $("gInfo").textContent = gs.senders_total!=null ? `Sender: ${gs.senders_total} payers, ${gs.receivers_total} payees in the last hour · showing the largest` : "";
+  if(network) network.destroy();
+  network = new vis.Network($("graph"), {nodes: new vis.DataSet([...nodes.values()]), edges: new vis.DataSet([...edges.values()])}, {
+    layout:{hierarchical:{enabled:true, direction:"LR", sortMethod:"directed", levelSeparation:230, nodeSpacing:48}},
+    physics:false, interaction:{hover:true, tooltipDelay:80}, nodes:{shape:"dot", borderWidth:2}});
+  network.once("afterDrawing", () => network.fit());
+}
+document.querySelector("#case .row").addEventListener("click", async e => {
+  const b = e.target.closest("button[data-a]"); if(!b || !selected) return;
+  const id = selected.id, action = b.dataset.a;
+  if(!demo){ try{ await api(`/alerts/${id}/action`, {method:"POST", body: JSON.stringify({action, note: $("cNote").value})}); }catch(err){ toast(err.message); return; } }
+  else { const s = SAMPLE_ALERTS.find(x=>x.id===id); if(s) s.status = action; }
+  toast({confirm:"Confirmed as laundering", escalate:"Escalated to senior investigator", dismiss:"Dismissed as false alarm"}[action]);
+  const i = alerts.findIndex(x=>x.id===id); const next = alerts[i+1] || alerts[i-1];
+  selected = null; $("case").style.display = "none"; $("ph").style.display = "block";
+  await loadAlerts();
+  if(next && alerts.some(x=>x.id===next.id)) openAlert(next.id);
+});
+
+// ---------- score a payment ----------
+["fCur","fCur2"].forEach(id => $(id).innerHTML = CURRENCIES.map(c=>`<option>${c}</option>`).join(""));
+$("exNormal").onclick = () => { $("fSrc").value="0118_8000C6C40"; $("fDst").value="0038478_80E47CF60"; $("fAmt").value="2365.85"; $("fFmt").value="ACH"; $("fCur").value=$("fCur2").value="US Dollar"; };
+$("exHub").onclick = () => { $("fSrc").value="070_1004286A8"; $("fDst").value="0021615_8036AE1C0"; $("fAmt").value="8400.00"; $("fFmt").value="ACH"; $("fCur").value=$("fCur2").value="US Dollar"; };
+$("scoreBtn").onclick = async () => {
+  const body = {src:$("fSrc").value.trim(), dst:$("fDst").value.trim(), amount:Number($("fAmt").value), fmt:$("fFmt").value,
+    currency:$("fCur").value, cur_recv:$("fCur2").value, ts:$("fTs").value.trim(), txn_id:"manual-" + Date.now()};
+  if(!body.src || !body.dst || !(body.amount > 0)){ toast("Fill in both accounts and an amount above 0"); return; }
+  $("scoreBtn").disabled = true;
+  try{
+    const r = await api("/score", {method:"POST", body: JSON.stringify(body)});
+    const col = r.decision==="HOLD"?"var(--red)":r.decision==="REVIEW"?"var(--orange)":"var(--green)";
+    $("scoreOut").innerHTML = `<div class="result" style="border-color:${col}">
+      <div class="r1"><div class="big" style="color:${col}">${r.decision}</div><div style="text-align:right"><div class="big" style="font-size:22px">${Math.round(r.score*100)}<span class="meta">/100 risk</span></div><div class="meta">decided in ${r.latency_ms} ms</div></div></div>
+      <div class="acc" style="margin-top:8px">${esc(r.src)} → ${esc(r.dst)} · ${money(r.amount)} · ${esc(r.fmt)}</div>
+      ${r.reasons.length ? `<ul class="reasons" style="font-size:13.5px">${r.reasons.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>` : `<p class="meta">No warning signs. The payment can go through.</p>`}
+      ${r.alert_id ? `<button class="btn ghost" style="margin-top:10px" onclick="show('investigate');openAlert(${r.alert_id})">Open case →</button>` : ""}</div>`;
+  }catch(e){ toast(e.message); }
+  $("scoreBtn").disabled = demo;
+};
+
+// ---------- results ----------
+async function loadMetrics(){
+  let m; try{ m = demo ? SAMPLE_METRICS : await api("/metrics"); }catch(e){ m = SAMPLE_METRICS; }
+  const name = s => s.replace(/^[ABC]:\s*/,""), best = m.reduce((a,b)=> b.pr_auc>a.pr_auc?b:a, m[0]);
+  const bars = (key, fmt, max) => m.map(r => `<div class="b"><div class="bl"><span>${esc(r.model)}</span><b style="color:var(--text)">${fmt(r[key])}</b></div>
+    <div class="bt"><i style="width:${Math.max(r[key]/max*100,0.8)}%;background:${r===best?"var(--blue)":"#3a4663"}"></i></div></div>`).join("");
+  $("barRecall").innerHTML = bars("recall", v => (v*100).toFixed(1)+"%", Math.max(...m.map(r=>r.recall)));
+  $("barAuc").innerHTML = bars("pr_auc", v => v.toFixed(4), Math.max(...m.map(r=>r.pr_auc)));
+  $("mTable").innerHTML = m.map(r => `<tr class="${r===best?"best":""}"><td>${esc(r.model)}</td><td>${r.pr_auc.toFixed(4)}</td><td>${(r.recall*100).toFixed(1)}%</td><td>${(r.precision*100).toFixed(1)}%</td><td>${r.review_pct.toFixed(2)}%</td><td>${r.fp_per_1000.toFixed(1)}</td></tr>`).join("");
+  const a = m.find(r=>r.model.startsWith("A")), c = m.find(r=>r.model.startsWith("C"));
+  if(a && c) $("mNote").innerHTML = `MuleTrace ranks risk <b>${Math.round(c.pr_auc/a.pr_auc)}× better</b> than a normal one-payment-at-a-time model and catches <b>${(c.recall/a.recall).toFixed(1)}×</b> more laundering while reviewing fewer payments.
+    Laundering is very rare (about 1 in 1,000 payments), so about 1 in ${Math.round(1/c.precision)} flagged payments is real laundering. That is why a human investigator makes the final call.`;
+}
+
+// ---------- system ----------
+async function loadSystem(){
+  let s; try{ s = demo ? SAMPLE_SYSTEM : await api("/system"); }catch(e){ s = SAMPLE_SYSTEM; }
+  const card = (l, v, h) => `<div class="stat"><div class="l">${l}</div><div class="v" style="font-size:22px">${v}</div><div class="h">${h}</div></div>`;
+  $("sysKv").innerHTML = [
+    card("Machine", esc(MACHINES[s.machine_type] || ("Type " + (s.machine_type||"?"))), "machine type " + esc(s.machine_type||"?")),
+    card("Architecture", esc(s.arch), s.arch==="s390x" ? "IBM Z instruction set · " + esc(s.byteorder) + "-endian" : "not IBM Z"),
+    card("On-chip AI accelerator", s.nnpa ? '<span style="color:var(--green)">Available</span>' : "Not found", s.nnpa ? "Telum II (NNPA) detected. Current model runs on CPU" : "NNPA not reported"),
+    card("Data leaving the machine", '<span style="color:var(--green)">None</span>', "all scoring happens on this server"),
+    card("Model", "XGBoost", (s.features||20) + " network + payment signals"),
+    card("Runtime", "Python " + esc(s.python), (s.cpus||"?") + " vCPUs · FastAPI")
+  ].join("");
+}
+function updateIbmPill(){ api("/system").then(s => { $("ibm").textContent = "● " + (MACHINES[s.machine_type]||"IBM Z") + " · " + s.arch; }).catch(()=>{ $("ibm").textContent = "● IBM z17 · s390x"; }); }
+
+// ---------- start ----------
+tick(); updateIbmPill();
+setInterval(() => { tick(); if(page==="investigate" && !demo && segVal("fStatus")==="open") refreshListQuietly(); }, 2000);
+let lastListLoad = 0;
+function refreshListQuietly(){ if(Date.now() - lastListLoad < 5000) return; lastListLoad = Date.now(); loadAlerts(); }
+{ const h = (location.hash || "").slice(1); show(["monitor","investigate","score","results","system"].includes(h) ? h : "monitor"); }
+</script>
+</body>
+</html>
