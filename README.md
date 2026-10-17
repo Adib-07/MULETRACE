@@ -6,7 +6,7 @@
 
 > Team Quorvex · Yenepoya (Deemed to be University) · IBM Z Datathon 2026 · Track: *Real-Time AI for Critical Decisions* · Theme: Technology for Good
 
-- **Live demo:** a public HTTPS judge demo runs on the LinuxONE VM (no login; synthetic data; actions simulated and reset periodically). The URL is given in the Hack2Skill submission. Team access to the admin app is through an SSH tunnel only.
+- **Live demo:** not publicly exposed right now. The team runs the admin app on the LinuxONE VM behind an SSH tunnel. A public HTTPS judge mode was built and verified from outside, then switched off again (see [Deployment](#deployment)); `scripts/public_start.sh` plus open ports 80/443 turns it back on.
 - **Demo video:** *link to be added by the team*
 - **Static demo (recorded data, clearly labelled MOCKED):** published only if GitHub Pages is enabled for this repo (see [Deployment](#deployment)).
 
@@ -232,7 +232,7 @@ python scripts/readme_results.py                        # regenerate the README 
 
 **Admin app (VERIFIED):** runs on the LinuxONE VM at 127.0.0.1:8000 (tmux `mt`), reached only through an SSH tunnel. Health check on the VM: `curl -s 127.0.0.1:8000/health`.
 
-**Public judge demo (VERIFIED from outside the VM):** `scripts/public_start.sh` runs a separate judge-mode instance on 127.0.0.1:8100 and Caddy (official v2.11.7 s390x binary, checksum-verified, in `~/bin`) with [`deploy/Caddyfile`](deploy/Caddyfile). Host firewall: TCP 22, 80 and 443 only. Checked from another network: valid Let's Encrypt certificate, HTTP→HTTPS redirect, `/health` 200, public role limits (403 for scoring and for replay above 100/s), 16 KB body cap, per-IP rate limit (burst → 429), ports 8000/8100 closed. Access logs contain no query strings, tokens or cookies. Restart recovery: killing the app and Caddy and running `scripts/public_start.sh` brings the URL back.
+**Public judge demo (built and verified from outside on 2026-10-18, then switched OFF; currently not exposed):** `scripts/public_start.sh` runs a separate judge-mode instance on 127.0.0.1:8100 and Caddy (official v2.11.7 s390x binary, checksum-verified, in `~/bin`) with [`deploy/Caddyfile`](deploy/Caddyfile). Host firewall: TCP 22, 80 and 443 only. Checked from another network: valid Let's Encrypt certificate, HTTP→HTTPS redirect, `/health` 200, public role limits (403 for scoring and for replay above 100/s), 16 KB body cap, per-IP rate limit (burst → 429), ports 8000/8100 closed. Access logs contain no query strings, tokens or cookies. Restart recovery: killing the app and Caddy and running `scripts/public_start.sh` brings the URL back.
 
 **Static fallback:** with GitHub Pages enabled (repo **Settings → Pages → Deploy from a branch → `main` / root**), the console works at `https://<owner>.github.io/MULETRACE/web/` in a clearly labelled **MOCKED** mode that reads the recorded `eval/` files. It is never presented as live.
 

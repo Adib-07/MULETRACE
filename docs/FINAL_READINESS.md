@@ -1,6 +1,6 @@
 # MuleTrace final readiness (final submission pass, 2026-10-18)
 
-Team Quorvex · IBM Z Datathon 2026 · Real-Time AI for Critical Decisions. Fallback tags: `v1-demo`, `v2-submission`, `v2.1-submission`. `v2.2-submission` = before going public. **This state: `v2.3-public`.**
+Team Quorvex · IBM Z Datathon 2026 · Real-Time AI for Critical Decisions. Fallback tags: `v1-demo`, `v2-submission`, `v2.1-submission`. `v2.2-submission` = before going public; `v2.3-public` = public demo verified, **later switched off**. **Current state: public exposure OFF** (ports 80/443 closed, Caddy and the judge instance stopped).
 
 ## Verdict: CONDITIONALLY READY
 
@@ -76,7 +76,9 @@ Team Quorvex · IBM Z Datathon 2026 · Real-Time AI for Critical Decisions. Fall
 | Egress | 0 non-loopback connections (75 samples, 2,000 payments) | `eval/egress.json` |
 | NNPA path (Snap ML on zDNN) | PR-AUC 0.2012 vs C 0.2188; slower than Snap ML on CPU at batch 1/256; proof of NNPA use recorded | `eval/nnpa.json` |
 
-## Public URL status: VERIFIED from outside
+## Public URL status: was VERIFIED from outside, now switched OFF at the team's request
+
+**Current open ports: 22 (SSH) only**, checked from the Mac. The firewall rules, Caddy's port permission and the processes are all removed or stopped. To re-enable: open 80/443 again, `setcap` Caddy, run `scripts/public_start.sh`. The verification below describes the state while it was live.
 
 Hostname `<dashed-public-ip>.sslip.io` (kept out of the repo; it is in `~/.muletrace-public.env` on the VM and in the chat). What was changed on the VM, with your approval:
 - `setcap cap_net_bind_service=+ep` on `~/bin/caddy` (Caddy stays non-root).
