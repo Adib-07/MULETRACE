@@ -111,6 +111,8 @@ with sync_playwright() as p:
     page.focus("#nav button[data-p='system']"); page.keyboard.press("Enter")
     expect(page.locator("#trust")).to_contain_text("Verified on this machine", timeout=10000)
     expect(page.locator("#trust")).to_contain_text("Simulated")
+    expect(page.locator("#trust")).to_contain_text("Measured on Telum II")
+    expect(page.locator("#trust")).to_contain_text("no speed-up")
     page.screenshot(path=f"{OUT}/system-1440.png", full_page=True)
     ok("keyboard nav order correct; Evidence and System (Trust panel) render")
 
