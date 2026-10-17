@@ -1,0 +1,29 @@
+[
+  {
+    "model": "A: transaction-only model",
+    "pr_auc": 0.0094,
+    "recall": 0.194,
+    "precision": 0.016,
+    "review_pct": 1.18,
+    "fp_per_1000": 11.62,
+    "threshold": 0.9547471404075623
+  },
+  {
+    "model": "B: simple rules",
+    "pr_auc": 0.0021,
+    "recall": 0.003,
+    "precision": 0.0,
+    "review_pct": 1.17,
+    "fp_per_1000": 11.68,
+    "threshold": 0.55
+  },
+  {
+    "model": "C: MuleTrace network model",
+    "pr_auc": 0.2188,
+    "recall": 0.457,
+    "precision": 0.05,
+    "review_pct": 0.9,
+    "fp_per_1000": 8.57,
+    "threshold": 0.7471601408720023
+  }
+]
