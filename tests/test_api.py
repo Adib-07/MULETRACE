@@ -115,3 +115,19 @@ def test_legacy_decisions_are_read_as_new_vocabulary(client, app):
                        "VALUES('old',0,'a','b',1,0.5,'REVIEW','[]','open')")
     rows = client.get("/alerts?status=all&decision=FLAG&limit=500").json()
     assert any(r["txn_id"] == "old" and r["decision"] == "FLAG" for r in rows)
+
+
+def test_evidence_reads_eval_files_and_marks_missing(client):
+    ev = client.get("/evidence").json()
+    assert ev["metrics"] and ev["report"] and "C: MuleTrace network model" in ev["report"]["models"]
+    assert ev["latency"] is None                    # not measured in the fixture run -> null, never invented
+
+
+def test_alert_sort_and_latency_percentiles(client):
+    by_time = client.get("/alerts?status=all&sort=time&limit=500").json()
+    assert [a["ts"] for a in by_time] == sorted((a["ts"] for a in by_time), reverse=True)
+    by_risk = client.get("/alerts?status=all&sort=risk&limit=500").json()
+    assert [a["score"] for a in by_risk] == sorted((a["score"] for a in by_risk), reverse=True)
+    assert client.get("/alerts?sort=bogus").status_code == 422
+    s = client.get("/stats").json()
+    assert s["p50_ms"] is not None and s["p50_ms"] <= s["p95_ms"]

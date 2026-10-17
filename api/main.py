@@ -90,6 +90,7 @@ last_t = [0]                        # latest payment time seen (minutes)
 scored_ids = set()                  # txn_ids already scored, so a replay cannot count a payment twice
 recent = deque(maxlen=300)          # last decisions, for the live feed
 ticks = deque(maxlen=5000)          # timestamps of decisions, for payments/second
+lat_ms = deque(maxlen=2000)         # recent server-side decision times, for p50/p95
 
 LEGACY = {"ALLOW": "PASS", "REVIEW": "FLAG"}
 RECOMMENDATION = {
@@ -195,6 +196,7 @@ def score_payment(x: dict):
     with stats_lock:
         stats["scored"] += 1; stats["ms_total"] += ms; stats[decision.lower()] += 1
         ticks.append(now)
+        lat_ms.append(ms)
     alert_id = None
     if decision != "PASS":
         with db_lock:
@@ -354,14 +356,15 @@ def _rows(cur):
     return out
 
 @app.get("/alerts")
-def alerts(limit: int = 50, status: str = "open", decision: str = "all"):
+def alerts(limit: int = 50, status: str = "open", decision: str = "all", sort: Literal["risk", "time"] = "risk"):
     q, args = "SELECT " + ALERT_COLS + " FROM alerts WHERE 1=1", []
     if status != "all":
         q += " AND status=?"; args.append(status)
     decision = LEGACY.get(decision, decision)
     if decision in ("HOLD", "FLAG"):
         q += " AND decision IN (?,?)"; args += [decision, {"FLAG": "REVIEW"}.get(decision, decision)]
-    q += " ORDER BY score DESC, id DESC LIMIT ?"; args.append(max(1, min(limit, 500)))
+    q += (" ORDER BY score DESC, id DESC" if sort == "risk" else " ORDER BY ts DESC, id DESC") + " LIMIT ?"
+    args.append(max(1, min(limit, 500)))
     with db_lock:
         return _rows(db.execute(q, args))
 
@@ -436,7 +439,10 @@ def get_stats():
         s = dict(stats)
         now = time.time()
         s["per_sec"] = round(sum(1 for t in ticks if t >= now - 10) / 10, 1)
+        recent_ms = sorted(lat_ms)
     s["avg_ms"] = round(s["ms_total"] / s["scored"], 3) if s["scored"] else 0
+    s["p50_ms"] = round(recent_ms[len(recent_ms) // 2], 3) if recent_ms else None
+    s["p95_ms"] = round(recent_ms[int(len(recent_ms) * 0.95)], 3) if recent_ms else None
     with db_lock:
         s["by_status"] = dict(db.execute("SELECT status, COUNT(*) FROM alerts GROUP BY status").fetchall())
     s["replay"] = dict(replay)
@@ -450,6 +456,20 @@ def metrics():
         return json.load(open(os.path.join(EVAL, "metrics.json")))
     except FileNotFoundError:
         raise HTTPException(404, "eval/metrics.json not found - run model/train.py")
+
+EVIDENCE_FILES = {"metrics": "metrics.json", "report": "report.json", "report_shuf": "report_shuf.json",
+                  "latency": "latency.json", "environment": "environment.json"}
+
+@app.get("/evidence")
+def evidence():
+    """Result files from eval/ as written by train.py and bench/latency.py; null when a file does not exist."""
+    out = {}
+    for key, name in EVIDENCE_FILES.items():
+        path = os.path.join(EVAL, name)
+        out[key] = json.load(open(path)) if os.path.exists(path) else None
+    if out["environment"]:
+        out["environment"].pop("pip_freeze", None)
+    return out
 
 @app.post("/replay/start", dependencies=[Depends(require_token)])
 def replay_start(r: ReplayReq):
