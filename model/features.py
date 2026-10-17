@@ -2,6 +2,8 @@ from collections import defaultdict, deque
 import math
 
 FORMATS = ["ACH", "Bitcoin", "Cash", "Cheque", "Credit Card", "Reinvestment", "Wire"]
+CURRENCIES = ["Australian Dollar", "Bitcoin", "Brazil Real", "Canadian Dollar", "Euro", "Mexican Peso",
+              "Ruble", "Rupee", "Saudi Riyal", "Shekel", "Swiss Franc", "UK Pound", "US Dollar", "Yen", "Yuan"]
 WIN = 60  # minutes of history to look at
 
 TXN_FEATURES = ["log_amt", "self_txn", "cross_cur", "fmt", "hour", "round_amt"]
@@ -41,7 +43,7 @@ class FlowState:
         cycle2 = 1 if src in dst_receivers else 0
         cycle3 = 0
         if not cycle2:
-            for r in list(dst_receivers)[:20]:
+            for r in sorted(dst_receivers)[:20]:   # sorted: set order changes between processes
                 ro = self.out.get(r)
                 if ro and any(x[1] == src and x[0] >= t - self.win for x in ro):
                     cycle3 = 1
