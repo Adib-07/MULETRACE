@@ -98,6 +98,7 @@ Source: [`eval/latency.json`](eval/latency.json) and [`eval/environment.json`](e
 - **Data stays put.** Scoring, flow memory and alerts run on one machine, and the API makes no outbound calls.
 - **On-chip AI is present but not used yet.** `/system` reports `nnpa: true` (Telum II). **Model C runs on the CPU.** On this VM, IBM Snap ML 1.17.2 printed "Falling back to CPU-only mode. IBM Snap ML will not leverage NNPA". We do not claim NNPA acceleration.
 - **Feature build:** 2,000,000 payments in 50 s (one pass), peak memory 2.3 GB.
+- Platform facts, s390x build notes and the Snap ML attempt (the model import fails; Snap ML runs CPU-only here): [docs/LINUXONE.md](docs/LINUXONE.md).
 
 ## API
 
@@ -146,8 +147,8 @@ python bench/latency.py inproc 20000   # eval/latency.json
 ### Run the console on the VM, open it from your laptop
 
 ```bash
-# on the VM (binds to 127.0.0.1 only; the token protects write endpoints)
-MULETRACE_TOKEN=$(cat ~/.muletrace_token) python -m uvicorn api.main:app --host 127.0.0.1 --port 8000
+# on the VM: stop old server, fresh alerts.db, uvicorn on 127.0.0.1:8000 in tmux "mt"; token in ~/.muletrace.env (outside the repo)
+bash ~/muletrace/scripts/demo_start.sh --rotate-token
 # on your laptop
 ssh -i <your-key.pem> -N -L 8000:127.0.0.1:8000 linux1@<vm-ip>
 # open http://localhost:8000/?token=<token>
@@ -169,7 +170,8 @@ model/build_features.py, model/train.py    Feature pass and training/evaluation
 bench/latency.py     Latency benchmark
 tests/               Pipeline and API tests (synthetic fixtures); tests/e2e/ browser smoke test
 eval/                Result files: metrics, report, shuffle check, latency, environment
-docs/                AUDIT.md, DEMO.md, api.md (outdated), screenshots/
+docs/                AUDIT.md, DEMO.md, LINUXONE.md, api.md (outdated), screenshots/
+scripts/             demo_start.sh, demo_reset.sh, readme_results.py
 samples/             Responses recorded from the first model (before hardening)
 ```
 
