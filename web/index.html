@@ -182,6 +182,8 @@ tr.best td{color:var(--text);font-weight:700;background:rgba(79,140,255,.08)}
           <div class="r1"><div><span id="cBadge"></span> <span class="big" id="cAmt" style="font-size:22px;margin-left:6px"></span></div><div class="meta" id="cMeta"></div></div>
           <div class="acc" style="font-size:12.5px;margin-top:8px"><b id="cSrc"></b> → <b id="cDst"></b></div>
           <ul class="reasons" id="cReasons" style="font-size:13.5px"></ul>
+          <div class="meta" style="margin-top:8px">Top model signals for this decision (XGBoost per-feature contribution, log-odds)</div>
+          <ul class="reasons" id="cExpl"></ul>
         </div>
         <div id="graph"></div>
         <div class="cb">
@@ -447,6 +449,7 @@ async function openAlert(id){
   $("cMeta").textContent = `Risk ${Math.round(a.score*100)}/100` + (a.fmt ? " · " + a.fmt : "") + (a.currency ? " · " + a.currency : "");
   $("cSrc").textContent = a.src; $("cDst").textContent = a.dst;
   $("cReasons").innerHTML = (a.reasons||[]).map(r => `<li>${esc(r)}</li>`).join("");
+  $("cExpl").innerHTML = (a.explanations||[]).length ? a.explanations.map(x => `<li>${esc(x.text)} <span class="meta">(+${Number(x.contribution).toFixed(2)})</span></li>`).join("") : '<li class="meta">Not available for this alert.</li>';
   $("cRec").textContent = "Recommendation: " + (a.recommendation || (dec(a.decision)==="HOLD" ? "HOLD — payment paused pending human review (simulated)" : "FLAG — payment proceeds; queued for human review (simulated)"));
   $("cNote").value = a.note || "";
   $("cStatus").textContent = a.status !== "open" ? "Current status: " + a.status : "";
@@ -515,6 +518,7 @@ $("scoreBtn").onclick = async () => {
       <div class="meta" style="margin-top:6px">${esc(r.recommendation)} <span class="sim">SIMULATED</span></div>
       <div class="acc" style="margin-top:8px">${esc(r.src)} → ${esc(r.dst)} · ${money(r.amount)} · ${esc(r.fmt)} · ${esc(r.ts)}</div>
       ${r.reasons.length ? `<ul class="reasons" style="font-size:13.5px">${r.reasons.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>` : `<p class="meta">No warning signs.</p>`}
+      ${(r.explanations||[]).length ? `<div class="meta" style="margin-top:6px">Top model signals: ${r.explanations.map(x=>esc(x.feature)+" +"+Number(x.contribution).toFixed(2)).join(" · ")}</div>` : ""}
       ${r.alert_id ? `<button class="btn ghost" style="margin-top:10px" id="openCase">Open case →</button>` : ""}</div>`;
     if(r.alert_id) $("openCase").onclick = () => { show("investigate"); openAlert(r.alert_id); };
   }catch(e){ $("scoreOut").innerHTML = `<div class="err-inline">Not scored: ${esc(e.message)}</div>`; }

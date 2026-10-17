@@ -101,6 +101,42 @@ def reasons(f):
     return r[:4]
 
 
+def _money(log_v):
+    return "${:,.0f}".format(math.expm1(log_v))
+
+def _yes_no(yes, no):
+    return lambda v: yes if v else no
+
+SIGNAL_TEXT = {   # feature value -> plain-English sentence with the actual value
+    "log_amt": lambda v: "Payment amount " + _money(v),
+    "self_txn": _yes_no("Sender and receiver are the same account", "Sender and receiver are different accounts"),
+    "cross_cur": _yes_no("Currency changes during the payment", "Same currency on both sides"),
+    "fmt": lambda v: "Payment type: " + (FORMATS[int(v)] if 0 <= int(v) < len(FORMATS) else "unknown"),
+    "hour": lambda v: f"Sent at {int(v):02d}:00",
+    "round_amt": _yes_no("Round amount (whole number of 100 or more)", "Not a round amount"),
+    "dst_in_senders": lambda v: f"Receiver got money from {int(v)} different accounts in the last hour",
+    "dst_in_count": lambda v: f"Receiver got {int(v)} payments in the last hour",
+    "dst_burst_10m": lambda v: f"{int(v)} payments hit the receiver in the last 10 minutes",
+    "dst_in_amt_log": lambda v: "Receiver took in " + _money(v) + " in the last hour",
+    "src_out_receivers": lambda v: f"Sender paid {int(v)} different accounts in the last hour",
+    "src_out_count": lambda v: f"Sender made {int(v)} payments in the last hour",
+    "src_in_amt_log": lambda v: "Sender received " + _money(v) + " in the last hour",
+    "fwd_ratio": lambda v: f"Sender has paid out {v * 100:.0f}% of what it received in the last hour",
+    "fwd_lag": lambda v: "Sender received no money in the last day" if v >= 1440 else f"Sender last received money {int(v)} min ago",
+    "src_first_seen": _yes_no("Sender account has never been seen before", "Sender account has been seen before"),
+    "dst_first_seen": _yes_no("Receiver account has never been seen before", "Receiver account has been seen before"),
+    "pair_seen": _yes_no("This sender has paid this receiver before", "First payment between these two accounts"),
+    "cycle2": _yes_no("Money flows back to the sender (2-account loop)", "No 2-account loop"),
+    "cycle3": _yes_no("Money returns to the sender through a 3-account loop", "No 3-account loop"),
+}
+
+def explain(f, contribs, feats, k=3):
+    """Top-k features pushing this payment towards laundering, from XGBoost pred_contribs (log-odds)."""
+    top = sorted((c, n) for c, n in zip(contribs, feats) if c > 0)[::-1][:k]
+    return [{"feature": n, "value": round(float(f[n]), 4), "contribution": round(float(c), 4),
+             "text": SIGNAL_TEXT[n](f[n])} for c, n in top]
+
+
 def rule_score(f):
     """Baseline B: simple hand-written rules, no machine learning."""
     s = min(f["dst_in_senders"], 10) / 10 * 0.3

@@ -14,11 +14,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+import xgboost as xgb
 from xgboost import XGBClassifier
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "model"))
-from features import FlowState, ALL_FEATURES, FORMATS, CURRENCIES, reasons
+from features import FlowState, ALL_FEATURES, FORMATS, CURRENCIES, reasons, explain
 
 def _path(env, default):
     return os.environ.get(env) or os.path.join(ROOT, default)
@@ -78,6 +79,7 @@ FLAG, HOLD = pick("flag"), pick("hold")
 
 model = XGBClassifier()
 model.load_model(os.path.join(MODELS, "model_c.json"))
+booster = model.get_booster()
 state = FlowState()
 lock = threading.Lock()             # guards state, last_t, scored_ids and model inference
 db_lock = threading.Lock()          # guards the single SQLite connection
@@ -104,7 +106,7 @@ db.execute("""CREATE TABLE IF NOT EXISTS alerts(id INTEGER PRIMARY KEY, txn_id T
   ts INTEGER, src TEXT, dst TEXT, amount REAL, score REAL, decision TEXT,
   reasons TEXT, status TEXT DEFAULT 'open', truth INTEGER)""")
 have = {r[1] for r in db.execute("PRAGMA table_info(alerts)")}
-for col, typ in (("currency", "TEXT"), ("fmt", "TEXT"), ("note", "TEXT"), ("acted_at", "REAL"), ("created_at", "REAL")):
+for col, typ in (("currency", "TEXT"), ("fmt", "TEXT"), ("note", "TEXT"), ("acted_at", "REAL"), ("created_at", "REAL"), ("explanations", "TEXT")):
     if col not in have:
         db.execute(f"ALTER TABLE alerts ADD COLUMN {col} {typ}")
 for old, new in LEGACY.items():
@@ -179,7 +181,15 @@ def score_payment(x: dict):
         row = pd.DataFrame([[f[k] for k in FEATS]], columns=FEATS, dtype="float32")
         p = float(model.predict_proba(row)[0, 1])
     decision = "HOLD" if p >= HOLD else "FLAG" if p >= FLAG else "PASS"
-    why = (reasons(f) or extra_reasons(f, p)) if decision != "PASS" else []
+    why, expl = [], []
+    if decision != "PASS":
+        # Per-decision attribution: XGBoost SHAP-style contributions (log-odds); the last column is the bias.
+        contribs = booster.predict(xgb.DMatrix(row), pred_contribs=True)[0][:-1]
+        expl = explain(f, contribs, FEATS)
+        rule = reasons(f)                       # ring patterns first, then the model's top signals
+        why = rule + [e["text"] for e in expl if e["text"] not in rule]
+        if not why:
+            why = extra_reasons(f, p)
     ms = (time.perf_counter() - t0) * 1000
     now = time.time()
     with stats_lock:
@@ -193,16 +203,16 @@ def score_payment(x: dict):
                 alert_id = old[0]
             else:
                 with db:
-                    cur = db.execute("INSERT INTO alerts(txn_id,ts,src,dst,amount,score,decision,reasons,truth,currency,fmt,created_at) "
-                                     "VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                    cur = db.execute("INSERT INTO alerts(txn_id,ts,src,dst,amount,score,decision,reasons,truth,currency,fmt,created_at,explanations) "
+                                     "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
                                      (txn_id, t, x["src"], x["dst"], amount, p, decision, json.dumps(why),
-                                      x.get("label"), x["currency"], x["fmt"], now))
+                                      x.get("label"), x["currency"], x["fmt"], now, json.dumps(expl)))
                     alert_id = cur.lastrowid
                     db.execute("INSERT INTO audit_log(alert_id,action,from_status,to_status,analyst,note,created_at) "
                                "VALUES(?,?,?,?,?,?,?)", (alert_id, "created", None, "open", "system", decision, now))
     out = {"txn_id": txn_id, "ts": fmt_min(t), "src": x["src"], "dst": x["dst"], "amount": amount,
            "currency": x["currency"], "fmt": x["fmt"], "score": round(p, 4), "decision": decision,
-           "reasons": why, "latency_ms": round(ms, 3), "alert_id": alert_id,
+           "reasons": why, "explanations": expl, "latency_ms": round(ms, 3), "alert_id": alert_id,
            "simulated": True, "recommendation": RECOMMENDATION[decision]}
     recent.appendleft(out)
     log.info(json.dumps({"event": "decision", "txn_id": txn_id, "decision": decision, "score": round(p, 4),
@@ -330,13 +340,14 @@ def score(x: Txn):
 def get_recent(limit: int = 50):
     return list(recent)[:max(1, min(limit, 300))]
 
-ALERT_COLS = "id,txn_id,ts,src,dst,amount,score,decision,reasons,status,currency,fmt,note,acted_at,created_at"
+ALERT_COLS = "id,txn_id,ts,src,dst,amount,score,decision,reasons,explanations,status,currency,fmt,note,acted_at,created_at"
 
 def _rows(cur):
     cols = [c[0] for c in cur.description]
     out = [dict(zip(cols, r)) for r in cur.fetchall()]
     for a in out:
         a["reasons"] = json.loads(a["reasons"] or "[]")
+        a["explanations"] = json.loads(a["explanations"] or "[]")
         a["decision"] = LEGACY.get(a["decision"], a["decision"])
         a["simulated"] = True
         a["recommendation"] = RECOMMENDATION.get(a["decision"], "")
