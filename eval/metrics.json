@@ -25,5 +25,14 @@
     "review_pct": 0.9,
     "fp_per_1000": 8.57,
     "threshold": 0.7471601408720023
+  },
+  {
+    "model": "N: network-only ablation",
+    "pr_auc": 0.0686,
+    "recall": 0.285,
+    "precision": 0.035,
+    "review_pct": 0.8,
+    "fp_per_1000": 7.72,
+    "threshold": 0.8351532220840454
   }
 ]

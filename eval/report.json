@@ -1,0 +1,262 @@
+{
+  "created_at": "2026-10-17 12:03:47 UTC",
+  "machine": "s390x",
+  "node": "muletrace",
+  "python": "3.12.3",
+  "xgboost": "3.4.1",
+  "suffix": null,
+  "rows": {
+    "train": 1200000,
+    "valid": 400000,
+    "test": 400000,
+    "train_sample": 200361
+  },
+  "positives": {
+    "train": 361,
+    "valid": 227,
+    "test": 396
+  },
+  "review_budget": 0.01,
+  "bootstrap_resamples": 200,
+  "models": {
+    "A: transaction-only model": {
+      "pr_auc": 0.0094,
+      "pr_auc_ci95": [
+        0.0078,
+        0.012
+      ],
+      "precision_at_k": {
+        "100": 0.01,
+        "500": 0.01,
+        "1000": 0.017
+      },
+      "recall_at_k": {
+        "100": 0.0025,
+        "500": 0.0126,
+        "1000": 0.0429
+      },
+      "confusion_at_flag": {
+        "threshold": 0.954747,
+        "tp": 77,
+        "fp": 4650,
+        "fn": 319,
+        "tn": 394954
+      },
+      "confusion_at_hold": {
+        "threshold": 0.982675,
+        "tp": 14,
+        "fp": 884,
+        "fn": 382,
+        "tn": 398720
+      },
+      "per_day": [
+        {
+          "day": "2022-09-02",
+          "payments": 269370,
+          "laundering": 142,
+          "pr_auc": 0.0045,
+          "recall": 0.183,
+          "flagged": 3274,
+          "tp": 26
+        },
+        {
+          "day": "2022-09-03",
+          "payments": 130630,
+          "laundering": 254,
+          "pr_auc": 0.021,
+          "recall": 0.201,
+          "flagged": 1453,
+          "tp": 51
+        }
+      ]
+    },
+    "B: simple rules": {
+      "pr_auc": 0.0021,
+      "pr_auc_ci95": [
+        0.0018,
+        0.0024
+      ],
+      "precision_at_k": {
+        "100": 0.0,
+        "500": 0.0,
+        "1000": 0.0
+      },
+      "recall_at_k": {
+        "100": 0.0,
+        "500": 0.0,
+        "1000": 0.0
+      },
+      "confusion_at_flag": {
+        "threshold": 0.55,
+        "tp": 1,
+        "fp": 4672,
+        "fn": 395,
+        "tn": 394932
+      },
+      "confusion_at_hold": {
+        "threshold": 0.57,
+        "tp": 0,
+        "fp": 3193,
+        "fn": 396,
+        "tn": 396411
+      },
+      "per_day": [
+        {
+          "day": "2022-09-02",
+          "payments": 269370,
+          "laundering": 142,
+          "pr_auc": 0.0011,
+          "recall": 0.007,
+          "flagged": 3359,
+          "tp": 1
+        },
+        {
+          "day": "2022-09-03",
+          "payments": 130630,
+          "laundering": 254,
+          "pr_auc": 0.0077,
+          "recall": 0.0,
+          "flagged": 1314,
+          "tp": 0
+        }
+      ]
+    },
+    "C: MuleTrace network model": {
+      "pr_auc": 0.2188,
+      "pr_auc_ci95": [
+        0.1753,
+        0.2643
+      ],
+      "precision_at_k": {
+        "100": 0.74,
+        "500": 0.218,
+        "1000": 0.133
+      },
+      "recall_at_k": {
+        "100": 0.1869,
+        "500": 0.2753,
+        "1000": 0.3359
+      },
+      "confusion_at_flag": {
+        "threshold": 0.74716,
+        "tp": 181,
+        "fp": 3430,
+        "fn": 215,
+        "tn": 396174
+      },
+      "confusion_at_hold": {
+        "threshold": 0.958885,
+        "tp": 120,
+        "fp": 563,
+        "fn": 276,
+        "tn": 399041
+      },
+      "per_day": [
+        {
+          "day": "2022-09-02",
+          "payments": 269370,
+          "laundering": 142,
+          "pr_auc": 0.1213,
+          "recall": 0.394,
+          "flagged": 2333,
+          "tp": 56
+        },
+        {
+          "day": "2022-09-03",
+          "payments": 130630,
+          "laundering": 254,
+          "pr_auc": 0.3134,
+          "recall": 0.492,
+          "flagged": 1278,
+          "tp": 125
+        }
+      ]
+    },
+    "N: network-only ablation": {
+      "pr_auc": 0.0686,
+      "pr_auc_ci95": [
+        0.0475,
+        0.0963
+      ],
+      "precision_at_k": {
+        "100": 0.31,
+        "500": 0.16,
+        "1000": 0.097
+      },
+      "recall_at_k": {
+        "100": 0.0783,
+        "500": 0.202,
+        "1000": 0.2449
+      },
+      "confusion_at_flag": {
+        "threshold": 0.835153,
+        "tp": 113,
+        "fp": 3090,
+        "fn": 283,
+        "tn": 396514
+      },
+      "confusion_at_hold": {
+        "threshold": 0.958114,
+        "tp": 87,
+        "fp": 562,
+        "fn": 309,
+        "tn": 399042
+      },
+      "per_day": [
+        {
+          "day": "2022-09-02",
+          "payments": 269370,
+          "laundering": 142,
+          "pr_auc": 0.0194,
+          "recall": 0.254,
+          "flagged": 2767,
+          "tp": 36
+        },
+        {
+          "day": "2022-09-03",
+          "payments": 130630,
+          "laundering": 254,
+          "pr_auc": 0.2067,
+          "recall": 0.303,
+          "flagged": 436,
+          "tp": 77
+        }
+      ]
+    }
+  },
+  "top_features_C_gain": [
+    [
+      "self_txn",
+      0.2796
+    ],
+    [
+      "fmt",
+      0.2339
+    ],
+    [
+      "src_out_count",
+      0.1487
+    ],
+    [
+      "pair_seen",
+      0.0702
+    ],
+    [
+      "src_out_receivers",
+      0.0658
+    ],
+    [
+      "cross_cur",
+      0.035
+    ],
+    [
+      "round_amt",
+      0.0193
+    ],
+    [
+      "log_amt",
+      0.0176
+    ]
+  ],
+  "seconds": 77
+}

@@ -1,0 +1,15 @@
+# Versions verified on the IBM LinuxONE VM (s390x, Ubuntu 24.04, Python 3.12.3); see eval/environment.json.
+# On that VM, numpy/pandas/scikit-learn/scipy come from apt (python3-numpy python3-pandas python3-sklearn)
+# and the venv is created with --system-site-packages. xgboost 3.4.1 builds from source on s390x (needs build-essential).
+fastapi==0.143.3
+uvicorn==0.54.0
+pydantic==2.14.1
+starlette==1.8.0
+xgboost==3.4.1
+numpy==1.26.4
+pandas==2.1.4
+scikit-learn==1.4.1.post1
+scipy==1.11.4
+# tests
+pytest==7.4.4
+httpx==0.28.1

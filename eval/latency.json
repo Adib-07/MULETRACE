@@ -1,0 +1,59 @@
+{
+  "machine": {
+    "arch": "s390x",
+    "machine_type": "9175",
+    "nnpa_present": true,
+    "cpus": 3,
+    "python": "3.12.3",
+    "node": "muletrace",
+    "inference": "CPU (XGBoost)"
+  },
+  "http_50rps": {
+    "what": "HTTP POST /score, one keep-alive client, fixed send rate",
+    "target_rate": 50.0,
+    "seconds": 29.98,
+    "sent": 1500,
+    "achieved_rate": 50.0,
+    "errors": {},
+    "client_round_trip_ms": {
+      "n": 1500,
+      "mean": 2.593,
+      "p50": 2.42,
+      "p95": 3.363,
+      "p99": 5.71,
+      "max": 25.681
+    },
+    "server_latency_ms": {
+      "n": 1500,
+      "mean": 1.501,
+      "p50": 1.347,
+      "p95": 1.945,
+      "p99": 4.347,
+      "max": 24.459
+    },
+    "measured_at": "2026-10-17 12:07:57 UTC",
+    "command": "python bench/latency.py http 50 30"
+  },
+  "inproc": {
+    "what": "score_payment() in-process: features + XGBoost + (FLAG/HOLD) pred_contribs + SQLite insert",
+    "payments": 20000,
+    "all": {
+      "n": 20000,
+      "mean": 1.225,
+      "p50": 1.103,
+      "p95": 1.592,
+      "p99": 4.061,
+      "max": 25.58
+    },
+    "flag_or_hold_only": {
+      "n": 229,
+      "mean": 4.204,
+      "p50": 4.082,
+      "p95": 4.831,
+      "p99": 6.536,
+      "max": 16.718
+    },
+    "measured_at": "2026-10-17 12:08:40 UTC",
+    "command": "python bench/latency.py inproc 20000"
+  }
+}

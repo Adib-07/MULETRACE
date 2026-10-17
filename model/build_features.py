@@ -3,9 +3,14 @@ import pandas as pd
 sys.path.insert(0, ".")
 from model.features import FlowState, ALL_FEATURES
 
+# "shuffle": robustness check. Within each minute the order is only CSV order, so shuffle it
+# (seeded) and write feat_*_shuf.pkl. If results hold up, the model is not using a file-order artefact.
+SHUFFLE = len(sys.argv) > 1 and sys.argv[1] == "shuffle"
 state = FlowState()  # one continuous stream: train -> valid -> test
 for name in ["train", "valid", "test"]:
     df = pd.read_pickle("data/" + name + ".pkl")
+    if SHUFFLE:
+        df = df.sample(frac=1, random_state=0).sort_values("ts", kind="stable").reset_index(drop=True)
     t0 = time.time()
     mins = df.ts.values.astype("datetime64[m]").astype("int64").tolist()
     rows = []
@@ -18,5 +23,5 @@ for name in ["train", "valid", "test"]:
     X = pd.DataFrame(rows, columns=ALL_FEATURES, dtype="float32")
     X["label"] = df.label.values
     X["txn_id"] = df.txn_id.values
-    X.to_pickle("data/feat_" + name + ".pkl")
+    X.to_pickle("data/feat_" + name + ("_shuf" if SHUFFLE else "") + ".pkl")
     print(name, len(X), "rows done in", round(time.time() - t0), "seconds")
