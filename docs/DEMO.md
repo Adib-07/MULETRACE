@@ -1,46 +1,40 @@
 # MuleTrace 3-minute demo
 
-## Start (on the LinuxONE VM)
+Everything runs on the LinuxONE VM, bound to 127.0.0.1. You reach it through an SSH tunnel. HOLD and every analyst action are **simulated**: no money moves.
+
+## Pre-demo checklist (T-10 min)
+
+1. **VM up and server running:** `ssh -i <your-key.pem> linux1@<vm-ip> 'curl -s 127.0.0.1:8000/health'` should print `{"status":"ok",...}`.
+2. **Fresh state:** run the reset command below. It gives an empty case queue and a stream at the start of the test set.
+3. **Tunnel open** on your laptop: `ssh -i <your-key.pem> -N -L 8000:127.0.0.1:8000 linux1@<vm-ip>`
+4. **Token:** `ssh -i <your-key.pem> linux1@<vm-ip> 'cat ~/.muletrace_token'`. Open `http://localhost:8000/?token=<token>`. The top bar should show **● LIVE** and **IBM z17 · s390x**.
+5. Set **Analyst** (top right) to your name. Close other tabs. Zoom the browser to 100–110%.
+
+## Reset (fresh alerts.db, server restart)
 
 ```bash
-ssh -i ~/.ssh/muletracekey1.pem linux1@<vm-ip>
-tmux kill-session -t api 2>/dev/null                      # stop any old server
-cd ~/muletrace && mv alerts.db alerts.db.bak-$(date +%s) 2>/dev/null; rm -f alerts.db-wal alerts.db-shm
-tmux new -d -s api 'source ~/venv/bin/activate && cd ~/muletrace && \
-  MULETRACE_TOKEN=$(cat ~/.muletrace_token) python -m uvicorn api.main:app --host 127.0.0.1 --port 8000'
-sleep 10 && curl -s 127.0.0.1:8000/health                  # {"status":"ok",...}
-cat ~/.muletrace_token                                      # the console token
+ssh -i <your-key.pem> linux1@<vm-ip>
+tmux kill-session -t api; cd ~/muletrace && rm -f alerts.db alerts.db-wal alerts.db-shm
+tmux new -d -s api "source ~/venv/bin/activate && cd ~/muletrace && MULETRACE_TOKEN=\$(cat ~/.muletrace_token) python -m uvicorn api.main:app --host 127.0.0.1 --port 8000 2>&1 | tee -a server.log"
+sleep 10; curl -s 127.0.0.1:8000/health
 ```
-
-On your laptop:
-
-```bash
-ssh -i ~/.ssh/muletracekey1.pem -N -L 8000:127.0.0.1:8000 linux1@<vm-ip>
-# open http://localhost:8000/?token=<token>
-```
-
-## Pre-demo checklist
-
-- [ ] VM up, `curl 127.0.0.1:8000/health` returns ok, tunnel open, console pill says **LIVE**
-- [ ] Fresh `alerts.db` (server restarted after moving the old one aside). The stream starts at the beginning of the test set.
-- [ ] Speed set to **50/s**; analyst name typed in (Investigate tab)
-- [ ] Backup: if the API is unreachable, open `http://localhost:8000/?demo=1` (clearly labelled demo data) or show `eval/report.md`
 
 ## Script
 
-| Time | Say / do |
-|---|---|
-| 0:00 | "Scam victims' money is moved through chains of mule accounts within minutes. Each payment looks normal; the ring doesn't." |
-| 0:20 | **IBM Z System** tab: s390x, IBM z17 (type 9175), big-endian, NNPA present (model runs on CPU today), no outbound data. |
-| 0:40 | **Live Monitor** → **Start stream** at 50/s. Point at PASS/FLAG/HOLD counts and the ~1 ms average decision time. Tick "flagged only". |
-| 1:20 | Click a **HOLD** row → case: ring reasons first, then the top 3 model signals with their values. Point at the flow graph (payers → sender → receiver → payees). |
-| 2:00 | Click **Confirm laundering**. The audit history shows "confirm by <name>". Point at the **SIMULATED — recommendation only** label: no payment was actually held. |
-| 2:20 | **Model Results**: C vs transaction-only vs rules vs network-only. Say it straight: "about 1 in 20 flags is laundering, so a human decides. Shuffling same-minute order lowers PR-AUC to 0.137, still 13× the baseline." |
-| 2:45 | Close: "Real-time, explainable, on-platform, and every decision is a human's, on the record." **Stop** the stream. |
+| Time | Say | Click |
+|---|---|---|
+| 0:00 | "Mule accounts move stolen money away from scam victims within minutes. Each payment looks normal; the ring doesn't." | Live page is open |
+| 0:20 | "This runs on an IBM z17, s390x, with no outbound data. The on-chip AI accelerator is present; our model runs on the CPU." | **System**: point at Machine, Architecture, NNPA "detected · model runs on CPU", Outbound data "none" |
+| 0:40 | "We replay 400,000 payments the model never saw, in time order." | **Live** → speed **200/s** → **▶ Start stream**. Point at the decision-time p50 (about 1 ms), the FLAG/HOLD counters, and the feed |
+| 1:20 | "Open a HOLD. The reasons are the ring patterns plus the model's own top signals, with the values." | Click a **⏸ HOLD** row in the feed (it opens Cases). Point at the simulated-recommendation banner, the reasons, the model signals and the money-flow graph (hover an edge, press **⤢ Fit graph**) |
+| 2:00 | "A human decides, and it's on the record." | Type a note → **Confirm laundering** → the audit timeline shows "confirm by <you>". Point at **SIMULATED · recorded in audit log** |
+| 2:20 | "Honest results: 23× the PR-AUC of a transaction-only model, about 1 in 20 flags is laundering, and we show what still fails." | **■ Stop** the stream (Live), then **Evidence**: model table (C vs A vs network-only), P@100 = 0.74, latency table, limits |
+| 2:45 | "MuleTrace complements national efforts like MuleHunter.AI: real-time, explainable, auditable, on IBM Z." | Close |
 
-## If something goes wrong
+## Fallbacks
 
-- **Pill says API OFFLINE:** the tunnel dropped. Re-run the `ssh -N -L` command and press **Retry**.
-- **Start says "already running" or "all test payments replayed":** restart the server with the start block above (fresh DB).
-- **401 on actions:** the token is missing. Reopen `/?token=<token>`.
-- **No HOLD yet:** wait about 30 s at 50/s, or open any FLAG case. The steps are the same.
+- **Stream won't start (409 "all test payments replayed"):** run the reset command.
+- **Top bar shows OFFLINE:** the tunnel dropped. Re-run the tunnel command and press **Retry**.
+- **Actions return 401:** paste the token into the yellow banner, or reopen with `?token=`.
+- **No HOLD in the feed yet:** open **Cases** and filter **⏸ HOLD**.
+- **VM unreachable:** open `web/index.html?demo=1` locally. It is clearly labelled **DEMO · not live** and shows only the recorded sample. Say so out loud.

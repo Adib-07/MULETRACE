@@ -128,11 +128,23 @@ python data/prepare.py                 # first 2,000,000 payments by time, 60/20
 python model/build_features.py         # ~50 s on the VM
 python model/train.py                  # models/, eval/metrics.json, eval/report.{json,md}
 python model/build_features.py shuffle && python model/train.py _shuf    # optional robustness check
-python -m pytest -q tests              # 26 tests on synthetic fixtures, no dataset needed
+python -m pytest -q tests              # 28 tests on synthetic fixtures, no dataset needed
 python bench/latency.py inproc 20000   # eval/latency.json
 ```
 
-To run the console, see [docs/DEMO.md](docs/DEMO.md).
+### Run the console on the VM, open it from your laptop
+
+```bash
+# on the VM (binds to 127.0.0.1 only; the token protects write endpoints)
+MULETRACE_TOKEN=$(cat ~/.muletrace_token) python -m uvicorn api.main:app --host 127.0.0.1 --port 8000
+# on your laptop
+ssh -i <your-key.pem> -N -L 8000:127.0.0.1:8000 linux1@<vm-ip>
+# open http://localhost:8000/?token=<token>
+```
+
+The console has five pages: Live, Cases, Score, Evidence (read from `eval/`) and System. The 3-minute script, checklist and reset command are in [docs/DEMO.md](docs/DEMO.md). Screenshots from the browser smoke test (`tests/e2e/smoke.py`, Playwright, run against a fixture server on the VM) are in [docs/screenshots/](docs/screenshots/).
+
+![Case view](docs/screenshots/case-1440.png)
 
 ## Repository
 
@@ -144,19 +156,34 @@ data/prepare.py      Time-sort, keep first N payments, 60/20/20 split
 model/features.py    FlowState, 20 features, reasons, explanations, rule baseline
 model/build_features.py, model/train.py    Feature pass and training/evaluation
 bench/latency.py     Latency benchmark
-tests/               Pipeline and API tests (synthetic fixtures)
+tests/               Pipeline and API tests (synthetic fixtures); tests/e2e/ browser smoke test
 eval/                Result files: metrics, report, shuffle check, latency, environment
-docs/                AUDIT.md, DEMO.md, api.md
+docs/                AUDIT.md, DEMO.md, api.md (outdated), screenshots/
 samples/             Responses recorded from the first model (before hardening)
 ```
 
 ## Responsible AI & AI use
 
-- **Synthetic data only.** IBM's AML dataset (CDLA-Sharing-1.0). No real customers and no PII.
+- **Synthetic data only.** No real customers and no PII.
 - **Recommendations only.** HOLD and all analyst actions are simulated. Every decision is audit-logged.
 - **Explanations** come from the model's own per-feature contributions, not a generic score.
 - **Ground truth** is stored only for evaluation and is never shown in the console or used for scoring.
 - **AI tools:** built with help from Claude (Anthropic) for code review, hardening, tests and documentation. The team reviewed and ran everything.
+
+## Data and third-party licences
+
+- **Dataset:** *IBM Transactions for Anti Money Laundering (AML)* by E. Altman et al., [Kaggle](https://www.kaggle.com/datasets/ealtman2019/ibm-transactions-for-anti-money-laundering-aml). File: `HI-Small_Trans.csv`. Licence as reported by the Kaggle CLI during download on our VM: "Community Data License Agreement - Sharing - Version 1.0". The data is not redistributed in this repo. Please check the licence terms on the Kaggle page yourself.
+- **vis-network 9.1.9** (vendored in `web/vendor/`): dual-licensed Apache-2.0 or MIT. Both texts are in `web/vendor/`.
+- **Python packages:** FastAPI, Uvicorn, Pydantic, XGBoost, pandas, NumPy, scikit-learn, under their own open-source licences (see `requirements.txt`).
+
+## Before submitting: verify manually
+
+We could not read the official Datathon rules from this environment, so none of these are claimed:
+- the deadline and submission portal
+- the required deliverables (repo, deck, video) and the video length limit
+- team-size rules
+- the rules on originality and AI-tool use
+- whether a licence must be chosen
 
 ## Team
 
