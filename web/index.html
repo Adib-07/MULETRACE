@@ -67,13 +67,13 @@ main{padding:var(--s4) var(--s5) 48px;min-width:0}
 @keyframes flow{to{background-position:12px 0}}
 .dcards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--s3)}
 .dcard{border:1px solid var(--line);border-radius:var(--r);padding:var(--s3);background:var(--panel)}
-.dcard h3{margin:0 0 var(--s1);font-size:var(--f-md)}.dcard p{margin:0;color:var(--mute);font-size:var(--f-sm)}
+.dcard h2{margin:0 0 var(--s1);font-size:var(--f-md)}.dcard p{margin:0;color:var(--mute);font-size:var(--f-sm)}
 .strip1{display:flex;flex-wrap:wrap;gap:var(--s2) var(--s4);align-items:center;margin-top:var(--s3);padding:var(--s3);border:1px solid var(--line);border-radius:var(--r);background:var(--panel)}
 .strip1 span{font-size:var(--f-sm);color:var(--mute)}.strip1 b{color:var(--text)}
 /* tour */
 .tour-hole{position:fixed;z-index:60;border-radius:10px;box-shadow:0 0 0 9999px rgba(3,6,12,.72);outline:2px solid var(--blue);pointer-events:none;transition:all .18s var(--ease)}
 .tour-tip{position:fixed;z-index:61;width:min(340px,calc(100vw - 32px));background:var(--panel2);border:1px solid var(--blue);border-radius:var(--r);padding:var(--s3);box-shadow:0 12px 32px rgba(0,0,0,.45)}
-.tour-tip h3{margin:0 0 var(--s1);font-size:var(--f-md)}.tour-tip p{margin:0 0 var(--s3);color:var(--mute);font-size:var(--f-sm)}
+.tour-tip h2{margin:0 0 var(--s1);font-size:var(--f-md)}.tour-tip p{margin:0 0 var(--s3);color:var(--mute);font-size:var(--f-sm)}
 /* case workspace */
 .ws{display:grid;grid-template-columns:minmax(0,1fr);gap:0}
 .ws-side{border-top:1px solid var(--line)}
@@ -220,9 +220,9 @@ tr.best td{font-weight:700;background:rgba(110,160,255,.08)}
     <div class="step"><div class="n">4 · Human investigator</div><b class="t">Confirm, escalate or dismiss</b><div class="v" id="ovDecided">–</div><div class="h" id="ovOpen">cases decided</div></div>
   </div>
   <div class="dcards">
-    <div class="dcard"><h3><span class="badge b-PASS"><span aria-hidden="true">✓</span>PASS</span></h3><p>No action. The payment proceeds and nothing is queued.</p></div>
-    <div class="dcard"><h3><span class="badge b-FLAG"><span aria-hidden="true">⚑</span>FLAG</span></h3><p>Top 1% of risk. The payment proceeds and a case is queued for an investigator.</p></div>
-    <div class="dcard"><h3><span class="badge b-HOLD"><span aria-hidden="true">⏸</span>HOLD</span></h3><p>Top 0.2% of risk. A <b>simulated recommendation</b> to pause the payment: no money is actually held. A human decides.</p></div>
+    <div class="dcard"><h2><span class="badge b-PASS"><span aria-hidden="true">✓</span>PASS</span></h2><p>No action. The payment proceeds and nothing is queued.</p></div>
+    <div class="dcard"><h2><span class="badge b-FLAG"><span aria-hidden="true">⚑</span>FLAG</span></h2><p>Top 1% of risk. The payment proceeds and a case is queued for an investigator.</p></div>
+    <div class="dcard"><h2><span class="badge b-HOLD"><span aria-hidden="true">⏸</span>HOLD</span></h2><p>Top 0.2% of risk. A <b>simulated recommendation</b> to pause the payment: no money is actually held. A human decides.</p></div>
   </div>
   <div class="strip1" id="ovStrip" aria-label="Platform facts"><span class="meta">Reading platform facts…</span></div>
 </section>
@@ -365,7 +365,7 @@ tr.best td{font-weight:700;background:rgba(110,160,255,.08)}
 </div>
 <div class="toast hidden" id="toast" role="status" aria-live="polite"></div>
 <div id="tourHole" class="tour-hole hidden"></div>
-<div id="tourTip" class="tour-tip hidden" role="dialog" aria-modal="false" aria-labelledby="tourTitle"><h3 id="tourTitle"></h3><p id="tourText"></p>
+<div id="tourTip" class="tour-tip hidden" role="dialog" aria-modal="false" aria-labelledby="tourTitle"><h2 id="tourTitle"></h2><p id="tourText"></p>
   <div class="row" style="justify-content:space-between"><span class="meta" id="tourStep"></span><span class="row"><button class="btn ghost" id="tourSkip">Skip</button><button class="btn ghost" id="tourBack">Back</button><button class="btn" id="tourNext">Next</button></span></div></div>
 
 <script>
@@ -521,7 +521,7 @@ function renderFeed(rows){
   show_($("feedEmpty"), !rows.length);
   $("feed").innerHTML = rows.map(r => {
     const k = r.txn_id + "|" + r.src + "|" + r.amount, isNew = !seen.has(k); seen.add(k);
-    const a = r.alert_id ? `tabindex="0" role="button" aria-label="Open case ${Number(r.alert_id)}" data-alert="${Number(r.alert_id)}"` : "";
+    const a = r.alert_id ? `tabindex="0" role="button" title="Open case ${Number(r.alert_id)}" data-alert="${Number(r.alert_id)}"` : "";
     return `<tr class="${isNew?"new":""}" ${a}><td>${badge(r.decision)}</td>
       <td><span class="bar" aria-hidden="true"><i style="width:${Math.round(r.score*100)}%;background:${riskColor(r.score)}"></i></span>${Math.round(r.score*100)}</td>
       <td class="mono">${esc(short(r.src))} → ${esc(short(r.dst))}</td><td class="r">${money(r.amount)}</td>
@@ -540,7 +540,7 @@ function updateStrip(rows){      // stable: only re-render when the set of the 5
   const next = [...known.values()].sort((a,b) => b.alert_id - a.alert_id).slice(0, 5);
   if(next.map(x => x.alert_id).join() === latest.map(x => x.alert_id).join() && latest.length) return;
   latest = next;
-  $("strip").innerHTML = latest.length ? latest.map(r => `<button data-alert="${Number(r.alert_id)}" aria-label="Open ${esc(dec(r.decision))} case ${Number(r.alert_id)}">${badge(r.decision)}<b>${money(r.amount)}</b><span class="meta">risk ${Math.round(r.score*100)}</span></button>`).join("") : '<span class="meta">None yet.</span>';
+  $("strip").innerHTML = latest.length ? latest.map(r => `<button data-alert="${Number(r.alert_id)}" title="Open case ${Number(r.alert_id)}">${badge(r.decision)}<b>${money(r.amount)}</b><span class="meta">risk ${Math.round(r.score*100)}</span></button>`).join("") : '<span class="meta">None yet.</span>';
 }
 $("strip").addEventListener("click", e => { const b = e.target.closest("button[data-alert]"); if(b){ show("cases"); openAlert(Number(b.dataset.alert)); } });
 onActivate($("feed"), "tr[data-alert]", tr => { show("cases"); openAlert(Number(tr.dataset.alert)); });
@@ -601,7 +601,7 @@ function renderList(){
   $("aCount").textContent = alerts.length + (alerts.length===200 ? "+" : "");
   if(!alerts.length){ $("list").innerHTML = `<div class="empty">No cases match these filters.<br>${mode==="live" ? '<button class="btn" id="goLive" style="margin-top:10px">Go to Live and start the stream</button>' : ""}</div>`; if($("goLive")) $("goLive").onclick = () => show("live"); return; }
   $("list").innerHTML = alerts.map(a => `
-    <div class="alert ${esc(dec(a.decision))}" data-id="${Number(a.id)}" tabindex="0" role="option" aria-selected="${selected&&selected.id===a.id}" aria-label="${esc(dec(a.decision))} case ${Number(a.id)}, ${money(a.amount)}, risk ${Math.round(a.score*100)}">
+    <div class="alert ${esc(dec(a.decision))}" data-id="${Number(a.id)}" tabindex="0" role="option" aria-selected="${!!(selected && selected.id === a.id)}">
       <div class="r1"><span>${badge(a.decision)} ${a.status!=="open"?`<span class="badge b-st">${esc(a.status)}</span>`:""}</span><span class="amt">${money(a.amount)}</span><span class="meta">risk ${Math.round(a.score*100)}</span></div>
       <div class="acc">${esc(a.src)} → ${esc(a.dst)}</div>
       <ul class="reasons">${cardLines(a).map(r=>`<li>${esc(r)}</li>`).join("")}</ul>
