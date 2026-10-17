@@ -1,0 +1,40 @@
+# MuleTrace public judge demo. Caddy terminates HTTPS (Let's Encrypt) and proxies ONLY to the public instance
+# (127.0.0.1:8100, MULETRACE_PUBLIC_DEMO=1, own demo DB). The admin app on 127.0.0.1:8000 is never proxied.
+# MULETRACE_HOST comes from ~/.muletrace-public.env (e.g. <dashed-public-ip>.sslip.io); the IP is never committed.
+{
+	admin off
+	servers {
+		timeouts {
+			read_header 10s
+			idle 2m
+		}
+	}
+}
+
+{$MULETRACE_HOST} {
+	encode gzip
+	request_body {
+		max_size 16KB
+	}
+	header {
+		-Server
+		Strict-Transport-Security "max-age=31536000"
+	}
+	reverse_proxy 127.0.0.1:8100 {
+		header_up X-Forwarded-For {remote_host}
+	}
+	log {
+		output file {$HOME}/muletrace-public/access.log {
+			roll_size 10MiB
+			roll_keep 5
+		}
+		format filter {
+			request>uri query {
+				delete token
+			}
+			request>headers>X-Muletrace-Token delete
+			request>headers>Cookie delete
+			request>headers>Authorization delete
+		}
+	}
+}

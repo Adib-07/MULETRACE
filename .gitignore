@@ -12,3 +12,4 @@ venv/
 .pytest_cache/
 data/*.zip
 autostart.log
+alerts-public.db*

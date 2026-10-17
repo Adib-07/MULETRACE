@@ -397,7 +397,17 @@ try{
   if(qs.get("token")){ sessionStorage.setItem("mtToken", normToken(qs.get("token"))); qs.delete("token"); history.replaceState(null, "", location.pathname + (qs.toString() ? "?" + qs : "") + location.hash); }
   TOKEN = normToken(sessionStorage.getItem("mtToken"));
 }catch(e){ TOKEN = normToken(qs.get("token")); }
-let authBlocked = false;      // a protected call returned 401: protected polling pauses until a valid token is saved
+let authBlocked = false;
+// Static build (GitHub Pages / ?static=1): no server exists, so the console is forced into labelled demo mode and
+// reads the recorded result files from ../eval/ (the same files the live server serves).
+const STATIC = location.hostname.endsWith("github.io") || qs.get("static") === "1";
+const EVAL_FILES = {metrics:"metrics.json", report:"report.json", metrics_shuf:"metrics_shuf.json", report_shuf:"report_shuf.json",
+  latency:"latency.json", environment:"environment.json", detection_delay:"detection_delay.json", egress:"egress.json", nnpa:"nnpa.json"};
+async function staticEvidence(){
+  const ev = {};
+  await Promise.all(Object.entries(EVAL_FILES).map(async ([k, f]) => { try{ const r = await fetch("../eval/" + f); ev[k] = r.ok ? await r.json() : null; }catch(e){ ev[k] = null; } }));
+  return ev;
+}      // a protected call returned 401: protected polling pauses until a valid token is saved
 const PUBLIC = /^\/(stats|system|evidence|health|metrics)(\b|\?|$)/;
 
 // Recorded sample (samples/*.json: 3,000-payment replay on the LinuxONE VM with the FIRST, pre-hardening model).
@@ -490,8 +500,9 @@ function setMode(m, detail){
     banner("err", `Cannot reach the MuleTrace API${detail ? " (" + esc(detail) + ")" : ""}. Figures on screen are the last live values. <button class="btn ghost" id="bRetry">Retry</button><button class="btn ghost" id="bDemo">Show recorded demo data</button>`);
     $("bRetry").onclick = () => { setMode("connecting"); tick(); }; $("bDemo").onclick = () => { setMode("demo"); tick(); show(page); };
   } else if(m === "demo"){
-    banner("warn", `DEMO MODE: recorded sample from a 3,000-payment replay on the LinuxONE VM. Nothing is live and actions are disabled. <button class="btn ghost" id="bLive">Try live API</button>`);
-    $("bLive").onclick = () => { setMode("connecting"); tick(); show(page); };
+    if(STATIC) banner("warn", `<span><b>MOCKED — recorded from the LinuxONE run.</b> This static page has no live server: the case queue is a recorded sample, actions are disabled, and Evidence shows the recorded result files from eval/. The live demo runs on IBM LinuxONE.</span>`);
+    else { banner("warn", `DEMO MODE: recorded sample from a 3,000-payment replay on the LinuxONE VM. Nothing is live and actions are disabled. <button class="btn ghost" id="bLive">Try live API</button>`);
+      $("bLive").onclick = () => { setMode("connecting"); tick(); show(page); }; }
   } else if(m === "live" && $("banner").classList.contains("err")) banner(null);
   else if(m === "connecting") banner(null);
   const live = m === "live";
@@ -884,14 +895,15 @@ async function scoreNow(){
 async function loadEvidence(){
   const body = $("evBody");
   let ev;
-  if(mode === "demo"){ $("evSub").textContent = "DEMO MODE"; body.innerHTML = '<div class="banner warn">Evidence is read from the eval/ files on the live server and is not available in demo mode. The same numbers are in eval/metrics_shuf.json, eval/metrics.json and eval/latency.json in the repository.</div>'; return; }
+  if(mode === "demo" && STATIC){ ev = await staticEvidence(); }
+  else if(mode === "demo"){ $("evSub").textContent = "DEMO MODE"; body.innerHTML = '<div class="banner warn">Evidence is read from the eval/ files on the live server and is not available in demo mode. The same numbers are in eval/metrics_shuf.json, eval/metrics.json and eval/latency.json in the repository.</div>'; return; }
   else{
     body.innerHTML = '<div class="skel"></div><div class="skel"></div><div class="skel"></div>';
     try{ ev = await api("/evidence"); }
     catch(e){ body.innerHTML = `<div class="banner err">Could not load evidence: ${esc(e.message)} <button class="btn ghost" id="evRetry">Retry</button></div>`; $("evRetry").onclick = loadEvidence; return; }
   }
   const rep = ev.report, models = (ev.metrics || []).map(m => ({...m, ...((rep && rep.models[m.model]) || {})}));
-  $("evSub").textContent = mode === "demo" ? "DEMO: recorded first-model metrics only." : rep ? `eval/metrics.json + eval/report.json · produced ${rep.created_at} on ${rep.machine} · test: ${num(rep.rows.test)} payments, ${num(rep.positives.test)} laundering · thresholds from validation only` : "eval/report.json not found: precision@k, CI and per-day are not measured.";
+  $("evSub").textContent = (mode === "demo" && STATIC) ? "MOCKED page: recorded result files from eval/, measured on the LinuxONE VM (no live server here)." : mode === "demo" ? "DEMO: recorded first-model metrics only." : rep ? `eval/metrics.json + eval/report.json · produced ${rep.created_at} on ${rep.machine} · test: ${num(rep.rows.test)} payments, ${num(rep.positives.test)} laundering · thresholds from validation only` : "eval/report.json not found: precision@k, CI and per-day are not measured.";
   if(!models.length){ body.innerHTML = '<div class="empty">Not measured: no result files in eval/. Run <span class="mono">python model/train.py</span>.</div>'; return; }
   const best = models.reduce((a,b) => b.pr_auc > a.pr_auc ? b : a, models[0]);
   const bars = (key, f) => { const mx = Math.max(...models.map(m => m[key]||0)) || 1; return models.map(m => `<div class="b"><div class="bl"><span>${esc(m.model)}</span><b style="color:var(--text)">${f(m[key])}</b></div><div class="bt"><i style="width:${Math.max((m[key]||0)/mx*100,0.8)}%;background:${m===best?"var(--blue)":"#3a4663"}"></i></div></div>`).join(""); };
@@ -1004,7 +1016,10 @@ function headline(ev){           // conservative (order-shuffled) result first, 
     + (d ? `<span>labelled attempts detected <b>${d.detected_pct}%</b> · median <b>${d.delay_minutes.median} min</b></span>` : "");
 }
 async function loadOverview(){
-  if(mode === "demo"){ $("ovStrip").innerHTML = '<span class="pill warn">DEMO</span><span>Recorded sample from the first model on the LinuxONE VM; platform facts need the live API.</span>'; return; }
+  if(mode === "demo"){
+    if(STATIC){ const ev = await staticEvidence(); const L = ev.latency, E = ev.environment;
+      $("ovStrip").innerHTML = `<span class="pill warn">MOCKED · recorded</span><span>measured on <b>${esc(E ? E.uname_m : "s390x")}</b>, machine type <b>${esc(E ? E.machine_type : "?")}</b></span><span>decision p50 <b>${L ? fx(L.inproc.all.p50,2) + " ms" : "not measured"}</b> (eval/latency.json)</span>${headline(ev)}`; return; }
+    $("ovStrip").innerHTML = '<span class="pill warn">DEMO</span><span>Recorded sample from the first model on the LinuxONE VM; platform facts need the live API.</span>'; return; }
   if(ovLoaded || mode !== "live") return;
   try{
     const [s, ev] = await Promise.all([api("/system"), api("/evidence").catch(() => null)]);
@@ -1102,7 +1117,7 @@ $("pubReset").onclick = () => busy($("pubReset"), async () => {
 });
 
 // ---------- start ----------
-if(qs.get("demo") === "1") setMode("demo");
+if(qs.get("demo") === "1" || STATIC) setMode("demo");
 tick();
 setInterval(() => { tick(); if(page==="cases" && mode==="live" && segVal("fStatus")==="open") refreshListQuietly(); }, 2000);
 let lastListLoad = 0;
