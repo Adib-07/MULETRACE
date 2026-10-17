@@ -338,7 +338,7 @@ def score(x: Txn):
     except Rejected as e:
         raise HTTPException(e.status, e.detail)
 
-@app.get("/recent")
+@app.get("/recent", dependencies=[Depends(require_token)])
 def get_recent(limit: int = 50):
     return list(recent)[:max(1, min(limit, 300))]
 
@@ -355,7 +355,7 @@ def _rows(cur):
         a["recommendation"] = RECOMMENDATION.get(a["decision"], "")
     return out
 
-@app.get("/alerts")
+@app.get("/alerts", dependencies=[Depends(require_token)])
 def alerts(limit: int = 50, status: str = "open", decision: str = "all", sort: Literal["risk", "time"] = "risk"):
     q, args = "SELECT " + ALERT_COLS + " FROM alerts WHERE 1=1", []
     if status != "all":
@@ -368,7 +368,7 @@ def alerts(limit: int = 50, status: str = "open", decision: str = "all", sort: L
     with db_lock:
         return _rows(db.execute(q, args))
 
-@app.get("/alerts/{alert_id}")
+@app.get("/alerts/{alert_id}", dependencies=[Depends(require_token)])
 def alert(alert_id: int):
     with db_lock:
         rows = _rows(db.execute("SELECT " + ALERT_COLS + " FROM alerts WHERE id=?", (alert_id,)))
@@ -398,7 +398,7 @@ def action(alert_id: int, a: Action):
             "audit_id": cur.lastrowid, "simulated": True,
             "detail": "Decision recorded in the audit log. No payment was actually held, released or reported."}
 
-@app.get("/alerts/{alert_id}/audit")
+@app.get("/alerts/{alert_id}/audit", dependencies=[Depends(require_token)])
 def audit(alert_id: int):
     with db_lock:
         if not db.execute("SELECT 1 FROM alerts WHERE id=?", (alert_id,)).fetchone():
@@ -408,7 +408,7 @@ def audit(alert_id: int):
         cols = [c[0] for c in cur.description]
         return [dict(zip(cols, r)) for r in cur.fetchall()]
 
-@app.get("/graph/{account}")
+@app.get("/graph/{account}", dependencies=[Depends(require_token)])
 def graph(account: str, limit: int = 25):
     with lock:
         since = last_t[0] - state.win      # only the last hour

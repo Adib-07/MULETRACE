@@ -52,15 +52,15 @@ def test_score_alert_action_audit(client):
     assert all(e["group"] == ("network" if e["feature"] in net else "payment") for e in ex)
     assert body["reasons"] and not any(x.startswith("AI risk score") for x in body["reasons"])
     aid = body["alert_id"]
-    alert = client.get(f"/alerts/{aid}").json()
+    alert = client.get(f"/alerts/{aid}", headers=H).json()
     assert alert["status"] == "open" and alert["explanations"] == body["explanations"] and "truth" not in alert
     r = client.post(f"/alerts/{aid}/action", json={"action": "confirm", "analyst": "Asha", "note": "ring"}, headers=H)
     assert r.status_code == 200 and r.json()["simulated"] is True
-    audit = client.get(f"/alerts/{aid}/audit").json()
+    audit = client.get(f"/alerts/{aid}/audit", headers=H).json()
     assert [a["action"] for a in audit] == ["created", "confirm"]
     want = {"from_status": "open", "to_status": "confirm", "analyst": "Asha", "note": "ring"}
     assert {k: audit[1][k] for k in want} == want
-    assert client.get(f"/alerts/{aid}").json()["status"] == "confirm"
+    assert client.get(f"/alerts/{aid}", headers=H).json()["status"] == "confirm"
 
 
 def test_audit_log_is_append_only(app):
@@ -103,7 +103,7 @@ def test_write_endpoints_need_token_and_json(client):
 def test_bad_action_and_missing_alert(client):
     assert client.post("/alerts/1/action", json={"action": "delete"}, headers=H).status_code == 422
     assert client.post("/alerts/999999/action", json={"action": "dismiss"}, headers=H).status_code == 404
-    assert client.get("/alerts/999999/audit").status_code == 404
+    assert client.get("/alerts/999999/audit", headers=H).status_code == 404
 
 
 def test_graph_shows_only_last_hour(client, app):
@@ -112,7 +112,7 @@ def test_graph_shows_only_last_hour(client, app):
     assert client.post("/score", json=pay(src="G_OLD", dst="G_HUB", ts=at(1)), headers=H).status_code == 200
     assert client.post("/score", json=pay(src="X1", dst="X2", ts=at(50)), headers=H).status_code == 200
     assert client.post("/score", json=pay(src="G_NEW", dst="G_HUB", ts=at(100)), headers=H).status_code == 200
-    senders = {e["from"] for e in client.get("/graph/G_HUB").json()["edges"]}
+    senders = {e["from"] for e in client.get("/graph/G_HUB", headers=H).json()["edges"]}
     assert senders == {"G_NEW"}
 
 
@@ -120,7 +120,7 @@ def test_legacy_decisions_are_read_as_new_vocabulary(client, app):
     with app.db_lock, app.db:
         app.db.execute("INSERT INTO alerts(txn_id,ts,src,dst,amount,score,decision,reasons,status) "
                        "VALUES('old',0,'a','b',1,0.5,'REVIEW','[]','open')")
-    rows = client.get("/alerts?status=all&decision=FLAG&limit=500").json()
+    rows = client.get("/alerts?status=all&decision=FLAG&limit=500", headers=H).json()
     assert any(r["txn_id"] == "old" and r["decision"] == "FLAG" for r in rows)
 
 
@@ -131,11 +131,11 @@ def test_evidence_reads_eval_files_and_marks_missing(client):
 
 
 def test_alert_sort_and_latency_percentiles(client):
-    by_time = client.get("/alerts?status=all&sort=time&limit=500").json()
+    by_time = client.get("/alerts?status=all&sort=time&limit=500", headers=H).json()
     assert [a["ts"] for a in by_time] == sorted((a["ts"] for a in by_time), reverse=True)
-    by_risk = client.get("/alerts?status=all&sort=risk&limit=500").json()
+    by_risk = client.get("/alerts?status=all&sort=risk&limit=500", headers=H).json()
     assert [a["score"] for a in by_risk] == sorted((a["score"] for a in by_risk), reverse=True)
-    assert client.get("/alerts?sort=bogus").status_code == 422
+    assert client.get("/alerts?sort=bogus", headers=H).status_code == 422
     s = client.get("/stats").json()
     assert s["p50_ms"] is not None and s["p50_ms"] <= s["p95_ms"]
 
@@ -144,6 +144,20 @@ def test_stats_accounts_and_graph_totals(client, app):
     s = client.get("/stats").json()
     assert s["accounts_tracked"] == len(app.state.seen) > 0
     acc = next(iter(app.state.out))
-    g = client.get(f"/graph/{acc}?limit=1").json()
+    g = client.get(f"/graph/{acc}?limit=1", headers=H).json()
     assert {"in_amount", "in_count", "out_amount", "out_count"} <= set(g)
     assert g["out_count"] >= len([e for e in g["edges"] if e["from"] == acc]) and g["out_amount"] >= 0
+
+
+@pytest.mark.parametrize("path", ["/alerts", "/alerts/1", "/alerts/1/audit", "/graph/100_A", "/recent"])
+def test_account_data_reads_need_token(client, path):
+    assert client.get(path).status_code == 401
+    assert client.get(path, headers={"X-MuleTrace-Token": "wrong"}).status_code == 401
+    assert client.get(path, headers=H).status_code in (200, 404)
+
+
+@pytest.mark.parametrize("path", ["/health", "/system", "/stats", "/evidence"])
+def test_public_endpoints_expose_no_account_ids(client, path):
+    r = client.get(path)
+    assert r.status_code == 200
+    assert "100_A" not in r.text and "200_B" not in r.text and "G_HUB" not in r.text

@@ -428,6 +428,7 @@ async function busy(btn, fn){ btn.disabled = true; btn.setAttribute("aria-busy",
 
 function banner(kind, html){ const b = $("banner"); if(!kind){ show_(b,false); b.innerHTML=""; return; } b.className = "banner " + kind; b.innerHTML = html; }
 function authNeeded(){
+  if($("tokIn")) return;                          // prompt already shown: do not wipe what is being typed
   banner("warn", `This server requires an API token for actions. <label for="tokIn" class="sr">API token</label><input id="tokIn" type="password" placeholder="paste token"> <button class="btn" id="tokBtn">Save token</button>`);
   $("tokBtn").onclick = () => { TOKEN = $("tokIn").value.trim(); try{ sessionStorage.setItem("mtToken", TOKEN); }catch(e){} banner(null); toast("Token saved for this tab"); };
 }
@@ -559,9 +560,11 @@ $("stopBtn").onclick = () => busy($("stopBtn"), async () => {
 async function tick(){
   if(mode === "demo"){ const rows = SAMPLE_ALERTS.map(a => ({...a, txn_id: a.id, alert_id: a.id})); renderStats(SAMPLE_STATS); updateStrip(rows); if(!feedPaused) renderFeed(rows); return; }
   try{
-    const [s, rec] = await Promise.all([api("/stats"), api("/recent?limit=80")]);
+    const s = await api("/stats");                 // public: aggregate counts only
     if(mode !== "live") setMode("live");
-    renderStats(s); updateStrip(rec); if(!feedPaused) renderFeed(rec);
+    renderStats(s);
+    const rec = await api("/recent?limit=80");     // account data: needs the token (401 -> token prompt)
+    updateStrip(rec); if(!feedPaused) renderFeed(rec);
   }catch(e){
     if(e.http){ if(e.http !== 401) toast(e.message); return; }
     if(mode !== "offline") setMode("offline", e.name === "AbortError" ? "no reply within 10 s" : "");
