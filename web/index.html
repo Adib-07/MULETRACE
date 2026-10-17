@@ -689,7 +689,7 @@ function gEdge(f, t, amt, cnt, tm, hi){
   known ? gEdges.update(e) : gEdges.add(e);
 }
 function gResize(){             // node size by money moved through it in the visible graph
-  gNodes.update([...gLevel.keys()].map(id => ({id, size: Math.min(34, 10 + 4.5 * Math.log10(1 + (gVol.get(id)||0) / 100))})));
+  gNodes.update([...gLevel.keys()].map(id => ({id, size: Math.min(24, 8 + 3 * Math.log10(1 + (gVol.get(id)||0) / 100))})));
 }
 function hideHover(){ show_($("hoverCard"), false); }
 function showHover(id, dom){
@@ -738,7 +738,7 @@ async function drawCase(a){
   if(gs.senders_total!=null) $("gInfo").textContent = `Last 60 minutes of stream time (older cases show fewer flows) · sender: ${gs.senders_total} payers, ${gs.receivers_total} payees · receiver: ${gd.senders_total} payers, ${gd.receivers_total} payees · largest 10 shown`;
   if(network) network.destroy();
   network = new vis.Network($("graph"), {nodes: gNodes, edges: gEdges}, {
-    layout:{hierarchical:{enabled:true, direction:"LR", sortMethod:"directed", levelSeparation:200, nodeSpacing:46}},
+    layout:{hierarchical:{enabled:true, direction:"LR", sortMethod:"directed", levelSeparation:220, nodeSpacing:62}},
     physics:false, interaction:{hover:true, tooltipDelay:80, keyboard:{enabled:true, bindToWindow:false}}, nodes:{shape:"dot", borderWidth:2}});
   network.once("afterDrawing", () => network.fit());
   network.on("click", p => { if(p.nodes.length) expandNode(p.nodes[0]); });
