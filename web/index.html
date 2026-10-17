@@ -520,7 +520,7 @@ async function drawCase(a){
   (gs.edges||[]).forEach(e => { if(e.to===a.src){ node(e.from, 0, "#6ea0ff", "paid the sender"); edge(e.from, a.src, e.amount, e.count, e.t); } else if(e.from===a.src && e.to!==a.dst){ node(e.to, 2, "#4ade80", "paid by the sender"); edge(a.src, e.to, e.amount, e.count, e.t); } });
   (gd.edges||[]).forEach(e => { if(e.from===a.dst){ node(e.to, 3, "#4ade80", "paid by the receiver"); edge(a.dst, e.to, e.amount, e.count, e.t); } else if(e.to===a.dst && e.from!==a.src){ node(e.from, 1, "#6ea0ff", "paid the receiver"); edge(e.from, a.dst, e.amount, e.count, e.t); } });
   edge(a.src, a.dst, a.amount, 1, a.ts, true);
-  if(gs.senders_total!=null) $("gInfo").textContent = `Last 60 minutes · sender: ${gs.senders_total} payers, ${gs.receivers_total} payees · receiver: ${gd.senders_total} payers, ${gd.receivers_total} payees · largest 10 shown`;
+  if(gs.senders_total!=null) $("gInfo").textContent = `Last 60 minutes of stream time (older cases show fewer flows) · sender: ${gs.senders_total} payers, ${gs.receivers_total} payees · receiver: ${gd.senders_total} payers, ${gd.receivers_total} payees · largest 10 shown`;
   if(network) network.destroy();
   network = new vis.Network($("graph"), {nodes: new vis.DataSet([...nodes.values()]), edges: new vis.DataSet([...edges.values()])}, {
     layout:{hierarchical:{enabled:true, direction:"LR", sortMethod:"directed", levelSeparation:220, nodeSpacing:46}},
@@ -537,8 +537,7 @@ $("cActions").addEventListener("click", async e => {
   try{
     await api(`/alerts/${id}/action`, {method:"POST", body: JSON.stringify({action, note, analyst})});
     toast({confirm:"Recorded: confirmed (simulated, audit-logged)", escalate:"Recorded: escalated (simulated, audit-logged)", dismiss:"Recorded: dismissed (audit-logged)"}[action]);
-    await loadAlerts();
-    const fresh = await api("/alerts/" + id); alerts = alerts.map(x => x.id===id ? fresh : x); if(!alerts.some(x => x.id===id)) alerts.unshift(fresh);
+    await loadAlerts();          // the case may leave the current filter; openAlert then fetches it by id
     openAlert(id);
   }catch(err){ toast(err.message); }
   finally{ btns.forEach(x => x.disabled = mode !== "live"); }
