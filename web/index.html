@@ -104,12 +104,12 @@ ul.reasons{margin:6px 0 0;padding-left:18px;color:#cdd5e6;font-size:var(--f-sm)}
 .banner.info{color:#dbe7ff;background:rgba(110,160,255,.10);border-color:var(--blue)}
 .banner input{width:220px}
 .hidden{display:none!important}
-.details{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--s2) var(--s4);margin-top:var(--s3)}
-.details div{min-width:0}.details b{display:block;font-weight:600;word-break:break-all}
+.details{display:flex;flex-wrap:wrap;gap:var(--s1) var(--s4);margin-top:var(--s2);font-size:var(--f-sm)}
+.details div{min-width:0}.details .meta{margin-right:4px}.details b{font-weight:600;word-break:break-all}
 .gauge{display:flex;align-items:center;gap:var(--s2)}
 .gauge .track{width:140px;height:10px;border-radius:5px;background:linear-gradient(90deg,var(--pass),var(--flag),var(--hold));position:relative}
 .gauge .needle{position:absolute;top:-4px;width:3px;height:18px;background:#fff;border-radius:2px}
-#graph{height:420px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:#0e1420}
+#graph{height:360px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:#0e1420}
 .timeline{list-style:none;margin:0;padding:0}
 .timeline li{position:relative;padding:6px 0 6px 18px;border-left:2px solid var(--line);margin-left:5px;font-size:var(--f-sm);color:#cdd5e6}
 .timeline li::before{content:"";position:absolute;left:-6px;top:11px;width:10px;height:10px;border-radius:50%;background:var(--blue)}
@@ -132,7 +132,7 @@ tr.best td{font-weight:700;background:rgba(110,160,255,.08)}
   nav.side button{padding:8px 10px;white-space:nowrap}
   nav.side button[aria-current="page"]{box-shadow:inset 0 -3px 0 var(--blue)}
   main{padding:var(--s3) var(--s4) 40px}
-  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.details,.sys{grid-template-columns:minmax(0,1fr)}
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.sys{grid-template-columns:minmax(0,1fr)}
   .who input{width:100px}#graph{height:340px}
   .hide-sm{display:none}
 }
@@ -209,17 +209,17 @@ tr.best td{font-weight:700;background:rgba(110,160,255,.08)}
             <div class="gauge" title="Model risk score"><span class="meta">risk</span><div class="track"><div class="needle" id="cNeedle"></div></div><b id="cRisk"></b></div></div>
           <div class="banner warn" style="margin:var(--s3) 0 0" id="cRec"></div>
           <div class="details" id="cDetails"></div>
-          <div class="meta" style="margin-top:var(--s3)">Ring patterns found</div>
+        </div>
+        <div class="cb row" style="justify-content:space-between;padding-top:0"><div class="legend"><span><i class="dot" style="background:#6ea0ff"></i>Paid in</span><span><i class="dot" style="background:#f87171"></i>Flagged payment</span><span><i class="dot" style="background:#4ade80"></i>Paid onward</span></div>
+          <span class="row"><span class="meta">click a node to expand it (max 2)</span><button class="btn ghost" id="fitBtn" style="padding:4px 10px">⤢ Fit graph</button></span></div>
+        <div id="graph" role="img" aria-label="Money flow around the flagged payment: sender's payers, sender, receiver, receiver's payees"></div>
+        <div class="cb"><div class="meta" id="gInfo"></div>
+          <div class="meta" style="margin-top:var(--s3);font-weight:700">Ring patterns found</div>
           <ul class="reasons" id="cReasons"></ul>
           <div class="meta" style="margin-top:var(--s2)">Network signals <span class="faint">(model contribution, log-odds)</span></div>
           <ul class="reasons" id="cNet"></ul>
           <div class="meta" style="margin-top:var(--s2)">Payment context</div>
           <ul class="reasons" id="cPay"></ul>
-        </div>
-        <div class="cb row" style="justify-content:space-between;padding-top:0"><div class="legend"><span><i class="dot" style="background:#6ea0ff"></i>Paid in</span><span><i class="dot" style="background:#f87171"></i>Flagged payment</span><span><i class="dot" style="background:#4ade80"></i>Paid onward</span></div>
-          <button class="btn ghost" id="fitBtn" style="padding:4px 10px">⤢ Fit graph</button></div>
-        <div id="graph" role="img" aria-label="Money flow around the flagged payment: sender's payers, sender, receiver, receiver's payees"></div>
-        <div class="cb"><div class="meta" id="gInfo"></div>
           <label for="cNote">Investigator note <span id="noteReq">(required for Confirm and Escalate)</span></label>
           <textarea id="cNote" rows="2" maxlength="500" placeholder="What did you check?"></textarea>
           <div class="ferr" id="noteErr" aria-live="polite"></div>
@@ -379,12 +379,13 @@ function show(p){
   page = p;
   document.querySelectorAll("#nav button").forEach(b => b.dataset.p===p ? b.setAttribute("aria-current","page") : b.removeAttribute("aria-current"));
   document.querySelectorAll(".page").forEach(s => s.classList.toggle("on", s.id==="p-"+p));
-  if(location.hash !== "#"+p) history.replaceState(null, "", location.pathname + location.search + "#" + p);
+  if(location.hash !== "#"+p) location.hash = p;          // pushes a history entry, so back/forward work
   if(p==="cases"){ loadAlerts(); if(network) setTimeout(()=>network.fit(), 50); }
   if(p==="evidence") loadEvidence();
   if(p==="system") loadSystem();
 }
 $("nav").addEventListener("click", e => { const b = e.target.closest("button"); if(b) show(b.dataset.p); });
+window.addEventListener("hashchange", () => { const h = location.hash.slice(1); if(PAGES.includes(h) && h !== page) show(h); });
 document.addEventListener("keydown", e => { if(e.key === "Escape" && page === "cases" && selected) closeCase(); });
 
 // ---------- live ----------
@@ -515,7 +516,7 @@ async function openAlert(id){
   $("cRisk").textContent = Math.round(a.score*100) + "/100"; $("cNeedle").style.left = `calc(${Math.min(a.score,1)*100}% - 1px)`;
   $("cRec").innerHTML = `Recommendation (simulated) — no money is moved. ${esc(a.recommendation || (d==="HOLD" ? "HOLD — payment paused pending human review (simulated)" : "FLAG — payment proceeds; queued for human review (simulated)"))}`;
   const det = [["From", a.src], ["To", a.dst], ["Time", a.ts ? minTime(a.ts) : "–"], ["Format", a.fmt || "–"], ["Currency", a.currency || "–"], ["Case", "#" + a.id + (a.txn_id ? " · txn " + a.txn_id : "")]];
-  $("cDetails").innerHTML = det.map(([k,v]) => `<div><span class="meta">${k}</span><b class="${k==="From"||k==="To"?"mono":""}">${esc(v)}</b></div>`).join("");
+  $("cDetails").innerHTML = det.map(([k,v]) => `<div><span class="meta">${k}</span><b class="${k==="From"||k==="To"?"mono":""}">${esc(v)}</b></div>`).join("") + (a.src === a.dst ? '<div><b style="color:var(--flag)">↻ self-transfer</b></div>' : "");
   const expl = signals(a), rules = ruleReasons(a);
   $("cReasons").innerHTML = rules.length ? rules.map(r => `<li>${esc(r)}</li>`).join("") : '<li class="meta">No ring rule fired; see the signals below.</li>';
   const sigList = g => { const xs = expl.filter(x => x.group === g); return xs.length ? xs.map(sigItem).join("") : `<li class="meta">${expl.length ? "None among the strongest signals." : "Not available for this case."}</li>`; };
@@ -557,29 +558,67 @@ async function loadAudit(id){
       : '<li class="meta">No entries yet.</li>';
   }catch(e){ $("cAudit").innerHTML = `<li style="color:var(--hold)">Could not load audit history: ${esc(e.message)} <button class="btn ghost" id="auRetry">Retry</button></li>`; $("auRetry").onclick = () => loadAudit(id); }
 }
+let gNodes = null, gEdges = null, gLevel = new Map(), gSelf = new Map(), gCase = null, expansions = 0;
+const G_MAX_NODES = 60, G_MAX_EXPAND = 2;
+function gNode(id, level, color, role, size=13){
+  if(gLevel.has(id) || gLevel.size >= G_MAX_NODES) return gLevel.has(id);
+  gLevel.set(id, level);
+  gNodes.add({id, level, label: short(id), title: `${id}\n${role}`, size, color:{background:color,border:"#0b0f17"}, font:{color:"#e8edf6",size:11,face:"monospace"}});
+  return true;
+}
+function gSelfBadge(id, amt, cnt){      // self-transfers become a badge on the node instead of an overlapping loop
+  const prev = gSelf.get(id) || {amount:0, count:0}; const cur = {amount: prev.amount + amt, count: prev.count + (cnt||1)}; gSelf.set(id, cur);
+  if(gLevel.has(id)) gNodes.update({id, label: `${short(id)}\n↻ self ${money(cur.amount)}${cur.count>1?` ×${cur.count}`:""}`});
+}
+function gEdge(f, t, amt, cnt, tm, hi){
+  if(f === t){ gSelfBadge(f, amt, cnt); return; }
+  if(!gLevel.has(f) || !gLevel.has(t)) return;
+  const id = f + "|" + t; if(gEdges.get(id) && !hi) return;
+  const e = {id, from:f, to:t, arrows:"to", label: money(amt) + (cnt>1?` ×${cnt}`:""), title: `${money(amt)}${cnt>1?` in ${cnt} payments`:""}${tm?`\nlast at ${minTime(tm)}`:""}${hi?"\nflagged payment":""}`,
+    width: hi?4:Math.min(1+Math.log10(1+amt/500),4), color:{color: hi?"#f87171":"#4a5878"}, font:{color: hi?"#fecaca":"#9aa6c0", size:10, strokeWidth:3, strokeColor:"#0e1420"}, smooth:{type:"cubicBezier",forceDirection:"horizontal"}};
+  gEdges.get(id) ? gEdges.update(e) : gEdges.add(e);
+}
+function gMerge(acc, g){        // add one account's 1-hop flows around its level
+  const lv = gLevel.get(acc);
+  (g.edges||[]).forEach(e => {
+    if(e.from === e.to){ gSelfBadge(e.from, e.amount, e.count); return; }
+    if(e.to === acc && gNode(e.from, lv - 1, "#6ea0ff", "paid " + short(acc))) gEdge(e.from, acc, e.amount, e.count, e.t);
+    else if(e.from === acc && gNode(e.to, lv + 1, "#4ade80", "paid by " + short(acc))) gEdge(acc, e.to, e.amount, e.count, e.t);
+  });
+}
 async function drawCase(a){
-  let gs = {edges:[]}, gd = {edges:[]};
+  gCase = a; expansions = 0; gLevel = new Map(); gSelf = new Map();
   $("gInfo").textContent = "";
+  if(!window.vis){ $("graph").innerHTML = '<div class="empty">Graph library could not load.</div>'; return; }
+  gNodes = new vis.DataSet(); gEdges = new vis.DataSet();
+  gNode(a.src, 1, "#f87171", "sender", 22); gNode(a.dst, a.src === a.dst ? 1 : 2, "#f87171", "receiver", 22);
+  let gs = {edges:[]}, gd = {edges:[]};
   if(mode === "live"){
     try{ [gs, gd] = await Promise.all([api(`/graph/${encodeURIComponent(a.src)}?limit=10`), api(`/graph/${encodeURIComponent(a.dst)}?limit=10`)]); }
     catch(e){ $("gInfo").textContent = "Graph unavailable: " + e.message; }
   } else $("gInfo").textContent = "Demo mode: the money-flow graph needs the live API.";
-  if(!window.vis){ $("graph").innerHTML = '<div class="empty">Graph library could not load.</div>'; return; }
-  const nodes = new Map(), edges = new Map();
-  const node = (id, level, color, role, size=13) => { if(!nodes.has(id)) nodes.set(id, {id, level, label: short(id), title: `${id}\n${role}`, size, color:{background:color,border:"#0b0f17"}, font:{color:"#e8edf6",size:11,face:"monospace"}}); };
-  const edge = (f, t, amt, cnt, tm, hi) => { const k=f+"|"+t; if(edges.has(k) && !hi) return;
-    edges.set(k, {from:f, to:t, arrows:"to", label: money(amt) + (cnt>1?` ×${cnt}`:""), title: `${money(amt)}${cnt>1?` in ${cnt} payments`:""}${tm?`\nlast at ${minTime(tm)}`:""}${hi?"\nflagged payment":""}`,
-      width: hi?4:Math.min(1+Math.log10(1+amt/500),4), color:{color: hi?"#f87171":"#4a5878"}, font:{color: hi?"#fecaca":"#9aa6c0", size:10, strokeWidth:3, strokeColor:"#0e1420"}, smooth:{type:"cubicBezier",forceDirection:"horizontal"}}); };
-  node(a.src, 1, "#f87171", "sender", 22); node(a.dst, 2, "#f87171", "receiver", 22);
-  (gs.edges||[]).forEach(e => { if(e.to===a.src){ node(e.from, 0, "#6ea0ff", "paid the sender"); edge(e.from, a.src, e.amount, e.count, e.t); } else if(e.from===a.src && e.to!==a.dst){ node(e.to, 2, "#4ade80", "paid by the sender"); edge(a.src, e.to, e.amount, e.count, e.t); } });
-  (gd.edges||[]).forEach(e => { if(e.from===a.dst){ node(e.to, 3, "#4ade80", "paid by the receiver"); edge(a.dst, e.to, e.amount, e.count, e.t); } else if(e.to===a.dst && e.from!==a.src){ node(e.from, 1, "#6ea0ff", "paid the receiver"); edge(e.from, a.dst, e.amount, e.count, e.t); } });
-  edge(a.src, a.dst, a.amount, 1, a.ts, true);
+  if(gCase !== a) return;                     // another case was opened meanwhile
+  gEdge(a.src, a.dst, a.amount, 1, a.ts, true);
+  gMerge(a.src, gs); if(a.dst !== a.src) gMerge(a.dst, gd);
   if(gs.senders_total!=null) $("gInfo").textContent = `Last 60 minutes of stream time (older cases show fewer flows) · sender: ${gs.senders_total} payers, ${gs.receivers_total} payees · receiver: ${gd.senders_total} payers, ${gd.receivers_total} payees · largest 10 shown`;
   if(network) network.destroy();
-  network = new vis.Network($("graph"), {nodes: new vis.DataSet([...nodes.values()]), edges: new vis.DataSet([...edges.values()])}, {
-    layout:{hierarchical:{enabled:true, direction:"LR", sortMethod:"directed", levelSeparation:220, nodeSpacing:46}},
-    physics:false, interaction:{hover:true, tooltipDelay:80, keyboard:{enabled:true, bindToWindow:false}, navigationButtons:false}, nodes:{shape:"dot", borderWidth:2}});
+  network = new vis.Network($("graph"), {nodes: gNodes, edges: gEdges}, {
+    layout:{hierarchical:{enabled:true, direction:"LR", sortMethod:"directed", levelSeparation:200, nodeSpacing:46}},
+    physics:false, interaction:{hover:true, tooltipDelay:80, keyboard:{enabled:true, bindToWindow:false}}, nodes:{shape:"dot", borderWidth:2}});
   network.once("afterDrawing", () => network.fit());
+  network.on("click", p => { if(p.nodes.length) expandNode(p.nodes[0]); });
+}
+async function expandNode(id){
+  if(mode !== "live") return;
+  if(expansions >= G_MAX_EXPAND){ toast(`Expansion limit reached (${G_MAX_EXPAND} per case)`); return; }
+  if(gLevel.size >= G_MAX_NODES){ toast(`Graph is capped at ${G_MAX_NODES} accounts`); return; }
+  expansions++;
+  try{
+    const g = await api(`/graph/${encodeURIComponent(id)}?limit=10`);
+    const before = gLevel.size; gMerge(id, g);
+    $("gInfo").textContent = `Expanded ${short(id)}: ${g.senders_total} payers, ${g.receivers_total} payees in the last hour · +${gLevel.size - before} accounts (${expansions}/${G_MAX_EXPAND} expansions, ${gLevel.size}/${G_MAX_NODES} nodes)`;
+    network.fit({animation:true});
+  }catch(e){ expansions--; toast(e.message); }
 }
 $("fitBtn").onclick = () => { if(network) network.fit({animation:true}); };
 $("cActions").addEventListener("click", async e => {
