@@ -80,6 +80,9 @@ td{padding:7px 10px;border-bottom:1px solid #1c2539}
 td.r,th.r{text-align:right}
 .tw{overflow-x:auto}
 .feed{max-height:460px;overflow:auto}
+.strip{display:flex;gap:var(--s2);overflow-x:auto;padding:6px 0 10px}
+.strip button{flex:0 0 auto;display:flex;align-items:center;gap:6px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:5px 9px;cursor:pointer;font-size:var(--f-xs)}
+.strip button:hover{border-color:var(--blue)}
 .feed tr[data-alert]{cursor:pointer}.feed tr[data-alert]:hover{background:var(--panel2)}
 tr.new{animation:flash 1.2s}@keyframes flash{from{background:rgba(110,160,255,.18)}to{background:transparent}}
 .bar{display:inline-block;width:64px;height:6px;background:var(--panel2);border-radius:3px;vertical-align:middle;margin-right:6px;overflow:hidden}.bar i{display:block;height:100%}
@@ -176,8 +179,9 @@ tr.best td{font-weight:700;background:rgba(110,160,255,.08)}
       <div class="mix" id="mix" aria-hidden="true"></div>
       <div class="legend"><span><i class="dot" style="background:var(--pass)"></i>✓ PASS <b id="mP">–</b></span><span><i class="dot" style="background:var(--flag)"></i>⚑ FLAG <b id="mF">–</b></span><span><i class="dot" style="background:var(--hold)"></i>⏸ HOLD <b id="mH">–</b></span></div>
     </div></div>
-    <div class="card"><h2>Live decisions <label class="meta" style="margin:0;text-transform:none;letter-spacing:0"><input type="checkbox" id="onlyFlag" style="width:auto;vertical-align:-2px"> FLAG/HOLD only</label></h2>
-      <div class="feed"><table><thead><tr><th>Decision</th><th>Risk</th><th>From → To</th><th class="r">Amount</th><th class="r hide-sm">Time</th></tr></thead><tbody id="feed"></tbody></table>
+    <div class="card"><h2>Live decisions <span class="row"><span id="paused" class="pill warn hidden" role="status">❚❚ paused while pointer is over the table</span><label class="meta" style="margin:0;text-transform:none;letter-spacing:0"><input type="checkbox" id="onlyFlag" style="width:auto;vertical-align:-2px"> FLAG/HOLD only</label></span></h2>
+      <div class="cb" style="padding-bottom:0"><div class="meta">Latest FLAG/HOLD</div><div class="strip" id="strip"><span class="meta">None yet.</span></div></div>
+      <div class="feed" id="feedBox"><table><thead><tr><th>Decision</th><th>Risk</th><th>From → To</th><th class="r">Amount</th><th class="r hide-sm">Time</th></tr></thead><tbody id="feed"></tbody></table>
       <div id="feedSkel" class="cb"><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>
       <div class="empty hidden" id="feedEmpty">No payments yet. Press <b>▶ Start stream</b>.</div></div>
     </div>
@@ -417,6 +421,21 @@ function renderFeed(rows){
       <td class="r meta hide-sm">${r.latency_ms!=null ? esc(r.latency_ms) + " ms" : ""}</td></tr>`; }).join("");
   if(seen.size > 3000) seen = new Set([...seen].slice(-1000));
 }
+let feedPaused = false, latest = [];
+function setPaused(on){ feedPaused = on; show_($("paused"), on); }
+$("feedBox").addEventListener("mouseenter", () => setPaused(true));
+$("feedBox").addEventListener("mouseleave", () => setPaused(false));
+$("feedBox").addEventListener("focusin", () => setPaused(true));
+$("feedBox").addEventListener("focusout", e => { if(!$("feedBox").contains(e.relatedTarget)) setPaused(false); });
+function updateStrip(rows){      // stable: only re-render when the set of the 5 newest alerts changes
+  const known = new Map(latest.map(x => [x.alert_id, x]));
+  rows.filter(r => r.alert_id).forEach(r => known.set(r.alert_id, r));
+  const next = [...known.values()].sort((a,b) => b.alert_id - a.alert_id).slice(0, 5);
+  if(next.map(x => x.alert_id).join() === latest.map(x => x.alert_id).join() && latest.length) return;
+  latest = next;
+  $("strip").innerHTML = latest.length ? latest.map(r => `<button data-alert="${Number(r.alert_id)}" aria-label="Open ${esc(dec(r.decision))} case ${Number(r.alert_id)}">${badge(r.decision)}<b>${money(r.amount)}</b><span class="meta">risk ${Math.round(r.score*100)}</span></button>`).join("") : '<span class="meta">None yet.</span>';
+}
+$("strip").addEventListener("click", e => { const b = e.target.closest("button[data-alert]"); if(b){ show("cases"); openAlert(Number(b.dataset.alert)); } });
 onActivate($("feed"), "tr[data-alert]", tr => { show("cases"); openAlert(Number(tr.dataset.alert)); });
 $("onlyFlag").addEventListener("change", () => tick());
 segment("speed", () => {});
@@ -432,7 +451,7 @@ async function tick(){
   try{
     const [s, rec] = await Promise.all([api("/stats"), api("/recent?limit=80")]);
     if(mode !== "live") setMode("live");
-    renderStats(s); renderFeed(rec);
+    renderStats(s); updateStrip(rec); if(!feedPaused) renderFeed(rec);
   }catch(e){
     if(e.http){ if(e.http !== 401) toast(e.message); return; }
     if(mode !== "offline") setMode("offline", e.name === "AbortError" ? "no reply within 10 s" : "");
