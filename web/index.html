@@ -196,6 +196,7 @@ tr.best td{font-weight:700;background:rgba(110,160,255,.08)}
     <div class="seg" id="fStatus" role="group" aria-label="Status"><button data-v="open" aria-pressed="true">Open</button><button data-v="confirm" aria-pressed="false">Confirmed</button><button data-v="escalate" aria-pressed="false">Escalated</button><button data-v="dismiss" aria-pressed="false">Dismissed</button><button data-v="all" aria-pressed="false">All</button></div>
     <div class="seg" id="fDec" role="group" aria-label="Decision"><button data-v="all" aria-pressed="true">All</button><button data-v="HOLD" aria-pressed="false">⏸ HOLD</button><button data-v="FLAG" aria-pressed="false">⚑ FLAG</button></div>
     <label for="fSort" class="sr">Sort</label><select id="fSort" style="width:auto"><option value="risk">Sort: highest risk</option><option value="time">Sort: newest</option></select>
+    <button class="btn" id="bestRing" title="Among open cases, opens the one whose sender and receiver have the most counterparties in the last hour">★ Best ring to show</button>
   </div>
   <div class="grid cases">
     <div class="card"><h2>Queue <span id="aCount"></span></h2><div class="list" id="list" role="listbox" aria-label="Cases"></div></div>
@@ -447,7 +448,7 @@ $("stopBtn").onclick = () => busy($("stopBtn"), async () => {
   try{ await api("/replay/stop", {method:"POST", body:"{}"}); toast("Stream stopped"); await tick(); } catch(e){ toast(e.message); }
 });
 async function tick(){
-  if(mode === "demo"){ renderStats(SAMPLE_STATS); renderFeed(SAMPLE_ALERTS.map(a => ({...a, txn_id: a.id}))); return; }
+  if(mode === "demo"){ const rows = SAMPLE_ALERTS.map(a => ({...a, txn_id: a.id, alert_id: a.id})); renderStats(SAMPLE_STATS); updateStrip(rows); if(!feedPaused) renderFeed(rows); return; }
   try{
     const [s, rec] = await Promise.all([api("/stats"), api("/recent?limit=80")]);
     if(mode !== "live") setMode("live");
@@ -530,6 +531,23 @@ function closeCase(){
   const el = id && $("list").querySelector(`[data-id="${id}"]`); if(el) el.focus();
 }
 $("closeCase").onclick = closeCase;
+$("bestRing").onclick = () => busy($("bestRing"), async () => {
+  if(mode !== "live"){ toast("Needs the live API"); return; }
+  try{
+    const open = await api("/alerts?status=open&sort=risk&limit=40");
+    if(!open.length){ toast("No open cases yet: start the stream on Live"); return; }
+    const scored = await Promise.all(open.map(async a => {
+      const [gs, gd] = await Promise.all([api(`/graph/${encodeURIComponent(a.src)}?limit=1`), api(`/graph/${encodeURIComponent(a.dst)}?limit=1`)]);
+      return {a, n: gs.senders_total + gs.receivers_total + gd.senders_total + gd.receivers_total};
+    }));
+    const best = scored.reduce((x, y) => y.n > x.n ? y : x);
+    if(!best.n){ toast("No open case has money flows in the last hour of stream time"); return; }
+    segment_set("fStatus", "open"); await loadAlerts();
+    openAlert(best.a.id);
+    toast(`Case #${best.a.id}: ${best.n} counterparties around sender and receiver in the last hour (checked ${open.length} open cases)`);
+  }catch(e){ toast(e.message); }
+});
+function segment_set(id, v){ [...$(id).children].forEach(x => x.setAttribute("aria-pressed", x.dataset.v===v ? "true" : "false")); }
 async function loadAudit(id){
   if(mode === "demo"){ $("cAudit").innerHTML = '<li class="meta">No audit history in demo mode.</li>'; return; }
   $("cAudit").innerHTML = '<li><div class="skel"></div></li>';
