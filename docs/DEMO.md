@@ -23,9 +23,9 @@ ssh -i <your-key.pem> linux1@<vm-ip> 'bash ~/muletrace/scripts/demo_reset.sh'
 
 | Time | Say | Click |
 |---|---|---|
-| 0:00 | "Mule accounts move stolen money away from scam victims within minutes. Each payment looks normal; the ring doesn't." | Live page is open |
-| 0:20 | "This runs on an IBM z17, s390x, with no outbound data. The on-chip AI accelerator is present; our model runs on the CPU." | **System**: point at Machine, Architecture, NNPA "detected · model runs on CPU", Outbound data "none" |
-| 0:40 | "We replay 400,000 payments the model never saw, in time order." | **Live** → speed **200/s** → **▶ Start stream**. Point at the decision-time p50 (about 1 ms), the FLAG/HOLD counters, and the feed |
+| 0:00 | "Mule accounts move stolen money away from scam victims within minutes. Each payment looks normal; the ring doesn't." | **Overview** is open: point at the 4-step pipeline and the PASS/FLAG/HOLD cards (HOLD is a simulated recommendation) |
+| 0:20 | "This runs on an IBM z17, s390x, with no outbound data. The on-chip AI accelerator is present; our model runs on the CPU." | Point at the platform strip on Overview, or open **System** → *Trust panel*: verified / capability not used / simulated |
+| 0:40 | "We replay 400,000 payments the model never saw, in time order." | **▶ Start live investigation** on Overview (or Live → speed **200/s** → **▶ Start stream**). Point at the decision-time p50 (about 1 ms), the FLAG/HOLD counters, and the feed |
 | 1:20 | "Here is the strongest ring right now. The reasons are the ring patterns first, then the model's own signals, each saying whether it raises or lowers risk." | **Cases** → **★ Best ring to show** (or click a card in the *Latest FLAG/HOLD* strip on Live). Point at the simulated-recommendation banner and the graph; click one payee node to expand it; hover an edge for amount/time. Scroll to Ring patterns / Network signals / Payment context |
 | 2:00 | "A human decides, and it's on the record." | Type a note → **Confirm laundering** → the audit timeline shows "confirm by <you>". Point at **SIMULATED · recorded in audit log** |
 | 2:20 | "Our headline is the conservative one: with payment order shuffled inside each minute, MuleTrace still ranks laundering far better than a transaction-only model and catches more of it. The standard run is only an upper bound. About 1 in 20 flags is laundering; a person decides." | **■ Stop** the stream (Live), then **Evidence**: point at the *Headline (conservative)* tiles (numbers come from eval/metrics_shuf.json), then the upper-bound table, latency and limits |
@@ -38,4 +38,5 @@ ssh -i <your-key.pem> linux1@<vm-ip> 'bash ~/muletrace/scripts/demo_reset.sh'
 - **Top bar shows OFFLINE:** the tunnel dropped. Re-run the tunnel command and press **Retry**.
 - **Actions return 401:** paste the token into the yellow banner, or reopen with `?token=`.
 - **No HOLD in the feed yet:** open **Cases** and filter **⏸ HOLD**.
+- **New to the console:** *Take the 60-second tour* on Overview walks through stream, feed, Best ring, graph and decision (Esc to skip).
 - **VM unreachable:** open `web/index.html?demo=1` locally. It is clearly labelled **DEMO · not live** and shows only the recorded sample. Say so out loud.
