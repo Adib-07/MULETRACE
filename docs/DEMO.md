@@ -28,7 +28,7 @@ sleep 10; curl -s 127.0.0.1:8000/health
 | 0:40 | "We replay 400,000 payments the model never saw, in time order." | **Live** → speed **200/s** → **▶ Start stream**. Point at the decision-time p50 (about 1 ms), the FLAG/HOLD counters, and the feed |
 | 1:20 | "Open a HOLD. The reasons are the ring patterns plus the model's own top signals, with the values." | Click a **⏸ HOLD** row in the feed (it opens Cases). Point at the simulated-recommendation banner, the reasons, the model signals and the money-flow graph (hover an edge, press **⤢ Fit graph**) |
 | 2:00 | "A human decides, and it's on the record." | Type a note → **Confirm laundering** → the audit timeline shows "confirm by <you>". Point at **SIMULATED · recorded in audit log** |
-| 2:20 | "Honest results: 23× the PR-AUC of a transaction-only model, about 1 in 20 flags is laundering, and we show what still fails." | **■ Stop** the stream (Live), then **Evidence**: model table (C vs A vs network-only), P@100 = 0.74, latency table, limits |
+| 2:20 | "Our headline is the conservative one: with payment order shuffled inside each minute, MuleTrace still ranks laundering far better than a transaction-only model and catches more of it. The standard run is only an upper bound. About 1 in 20 flags is laundering; a person decides." | **■ Stop** the stream (Live), then **Evidence**: point at the *Headline (conservative)* tiles (numbers come from eval/metrics_shuf.json), then the upper-bound table, latency and limits |
 | 2:45 | "MuleTrace complements national efforts like MuleHunter.AI: real-time, explainable, auditable, on IBM Z." | Close |
 
 ## Fallbacks

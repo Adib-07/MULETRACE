@@ -457,7 +457,8 @@ def metrics():
     except FileNotFoundError:
         raise HTTPException(404, "eval/metrics.json not found - run model/train.py")
 
-EVIDENCE_FILES = {"metrics": "metrics.json", "report": "report.json", "report_shuf": "report_shuf.json",
+EVIDENCE_FILES = {"metrics": "metrics.json", "report": "report.json", "metrics_shuf": "metrics_shuf.json",
+                  "report_shuf": "report_shuf.json",
                   "latency": "latency.json", "environment": "environment.json"}
 
 @app.get("/evidence")

@@ -597,7 +597,18 @@ async function loadEvidence(){
   const bars = (key, f) => { const mx = Math.max(...models.map(m => m[key]||0)) || 1; return models.map(m => `<div class="b"><div class="bl"><span>${esc(m.model)}</span><b style="color:var(--text)">${f(m[key])}</b></div><div class="bt"><i style="width:${Math.max((m[key]||0)/mx*100,0.8)}%;background:${m===best?"var(--blue)":"#3a4663"}"></i></div></div>`).join(""); };
   const ci = m => m.pr_auc_ci95 ? `${m.pr_auc_ci95[0].toFixed(3)}–${m.pr_auc_ci95[1].toFixed(3)}` : "not measured";
   const pk = m => k => m.precision_at_k ? fx(m.precision_at_k[k], 2) : "not measured";
-  let h = `<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr))">
+  const shufM = (ev.metrics_shuf || []).map(m => ({...m, ...((ev.report_shuf && ev.report_shuf.models[m.model]) || {})}));
+  const sC = shufM.find(m => m.model.startsWith("C")), sA = shufM.find(m => m.model.startsWith("A")), uC = models.find(m => m.model.startsWith("C"));
+  let h = sC && sA ? `<div class="card" style="margin-bottom:var(--s3)"><h2>Headline (conservative): order-shuffled run</h2><div class="cb">
+    <div class="grid kpis" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr))">
+      <div class="kpi"><div class="l">MuleTrace PR-AUC</div><div class="v">${fx(sC.pr_auc,3)}</div><div class="h">vs ${fx(sA.pr_auc,3)} transaction-only (${Math.round(sC.pr_auc/sA.pr_auc)}×)</div></div>
+      <div class="kpi"><div class="l">Laundering caught</div><div class="v">${pct(sC.recall,0)}</div><div class="h">vs ${pct(sA.recall,0)} transaction-only</div></div>
+      <div class="kpi"><div class="l">Flags that are laundering</div><div class="v">1 in ${Math.round(1/sC.precision)}</div><div class="h">vs 1 in ${Math.round(1/sA.precision)} transaction-only</div></div>
+      <div class="kpi"><div class="l">Upper bound (file order)</div><div class="v">${uC ? fx(uC.pr_auc,3) : "–"}</div><div class="h">standard run, recall ${uC ? pct(uC.recall,0) : "–"}</div></div>
+    </div>
+    <p class="meta" style="margin:var(--s3) 0 0">Timestamps are per minute, so the order of payments inside a minute is only file order. The shuffled run re-orders payments randomly within each minute before building features, so the model cannot benefit from that order. We lead with it; the standard run is an upper bound. Source: eval/metrics_shuf.json and eval/metrics.json.</p>
+  </div></div>` : `<div class="banner warn">Order-shuffled run not measured (eval/metrics_shuf.json missing): the results below may be optimistic.</div>`;
+  h += `<div class="meta" style="margin:0 0 var(--s2)">Standard run (upper bound) — eval/metrics.json + eval/report.json</div><div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr))">
     <div class="card"><h2>Ranking quality (PR-AUC)</h2><div class="cb bars">${bars("pr_auc", v => fx(v,4))}</div></div>
     <div class="card"><h2>Laundering caught at ~1% review</h2><div class="cb bars">${bars("recall", v => pct(v))}</div></div></div>
   <div class="card" style="margin-top:var(--s3)"><h2>All models on the test set</h2><div class="tw"><table><thead><tr><th>Model</th><th class="r">PR-AUC</th><th class="r">95% CI</th><th class="r">Recall</th><th class="r">Precision</th><th class="r">Reviewed</th><th class="r">False alarms / 1,000</th><th class="r">P@100</th><th class="r">P@500</th><th class="r">P@1000</th></tr></thead><tbody>
@@ -608,7 +619,6 @@ async function loadEvidence(){
     h += `<div class="card" style="margin-top:var(--s3)"><h2>Model C per test day</h2><div class="tw"><table><thead><tr><th>Day</th><th class="r">Payments</th><th class="r">Laundering</th><th class="r">PR-AUC</th><th class="r">Recall</th><th class="r">Flagged</th></tr></thead><tbody>
       ${cDays.map(d => `<tr><td>${esc(d.day)}</td><td class="r">${num(d.payments)}</td><td class="r">${num(d.laundering)}</td><td class="r">${fx(d.pr_auc,4)}</td><td class="r">${pct(d.recall)}</td><td class="r">${num(d.flagged)}</td></tr>`).join("")}</tbody></table></div></div>`;
   }
-  const sh = ev.report_shuf && ev.report_shuf.models["C: MuleTrace network model"];
   const c = models.find(m => m.model.startsWith("C")), a = models.find(m => m.model.startsWith("A"));
   const L = ev.latency, row = (name, s) => `<tr><td>${name}</td><td class="r">${s?fx(s.p50,2):"not measured"}</td><td class="r">${s?fx(s.p95,2):"–"}</td><td class="r">${s?fx(s.p99,2):"–"}</td><td class="r">${s?num(s.n):"–"}</td></tr>`;
   const http = L && L.http_50rps;
@@ -621,7 +631,7 @@ async function loadEvidence(){
     ${c ? `<li>About <b>1 in ${Math.round(1/c.precision)}</b> FLAGs is real laundering; the rest are false alarms. ${a ? `A transaction-only model manages about 1 in ${Math.round(1/a.precision)}.` : ""}</li>` : ""}
     ${c ? `<li>It still misses about <b>${Math.round((1-c.recall)*100)}%</b> of laundering at this review budget.</li>` : ""}
     <li><b>A human decides.</b> HOLD is a recommendation and every action here is simulated and audit-logged.</li>
-    ${sh ? `<li>Robustness check: with the order of payments inside each minute shuffled, model C's PR-AUC is ${fx(sh.pr_auc,4)} (vs ${fx(c.pr_auc,4)}). Part of the headline result depends on file order within a minute.</li>` : "<li>Within-minute shuffle check: not measured.</li>"}
+    ${sC ? `<li>About <b>1 in ${Math.round(1/sC.precision)}</b> FLAGs is laundering in the conservative (order-shuffled) run; ${pct(1-sC.recall,0)} of laundering is still missed there.</li>` : "<li>Within-minute shuffle check: not measured.</li>"}
   </ul></div></div>`;
   body.innerHTML = h;
 }
