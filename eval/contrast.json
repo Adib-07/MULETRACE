@@ -1,0 +1,245 @@
+{
+ "standard": "WCAG 2.x contrast ratio, AA normal text >= 4.5",
+ "pairs": [
+  {
+   "fg": "text",
+   "bg": "bg",
+   "fg_hex": "#eef2f8",
+   "bg_hex": "#0a0e16",
+   "ratio": 17.19,
+   "aa_normal_text": true
+  },
+  {
+   "fg": "text",
+   "bg": "panel",
+   "fg_hex": "#eef2f8",
+   "bg_hex": "#111827",
+   "ratio": 15.79,
+   "aa_normal_text": true
+  },
+  {
+   "fg": "text",
+   "bg": "panel2",
+   "fg_hex": "#eef2f8",
+   "bg_hex": "#1a2335",
+   "ratio": 13.99,
+   "aa_normal_text": true
+  },
+  {
+   "fg": "mute",
+   "bg": "bg",
+   "fg_hex": "#a7b2c9",
+   "bg_hex": "#0a0e16",
+   "ratio": 9.06,
+   "aa_normal_text": true
+  },
+  {
+   "fg": "mute",
+   "bg": "panel",
+   "fg_hex": "#a7b2c9",
+   "bg_hex": "#111827",
+   "ratio": 8.32,
+   "aa_normal_text": true
+  },
+  {
+   "fg": "mute",
+   "bg": "panel2",
+   "fg_hex": "#a7b2c9",
+   "bg_hex": "#1a2335",
+   "ratio": 7.38,
+   "aa_normal_text": true
+  },
+  {
+   "fg": "faint",
+   "bg": "bg",
+   "fg_hex": "#8b97b1",
+   "bg_hex": "#0a0e16",
+   "ratio": 6.58,
+   "aa_normal_text": true
+  },
+  {
+   "fg": "faint",
+   "bg": "panel",
+   "fg_hex": "#8b97b1",
+   "bg_hex": "#111827",
+   "ratio": 6.05,
+   "aa_normal_text": true
+  },
+  {
+   "fg": "faint",
+   "bg": "panel2",
+   "fg_hex": "#8b97b1",
+   "bg_hex": "#1a2335",
+   "ratio": 5.36,
+   "aa_normal_text": true
+  },
+  {
+   "fg": "pass",
+   "bg": "bg",
+   "fg_hex": "#4ade80",
+   "bg_hex": "#0a0e16",
+   "ratio": 11.08,
+   "aa_normal_text": true
+  },
+  {
+   "fg": "pass",
+   "bg": "panel",
+   "fg_hex": "#4ade80",
+   "bg_hex": "#111827",
+   "ratio": 10.18,
+   "aa_normal_text": true
+  },
+  {
+   "fg": "pass",
+   "bg": "panel2",
+   "fg_hex": "#4ade80",
+   "bg_hex": "#1a2335",
+   "ratio": 9.02,
+   "aa_normal_text": true
+  },
+  {
+   "fg": "flag",
+   "bg": "bg",
+   "fg_hex": "#fbbf24",
+   "bg_hex": "#0a0e16",
+   "ratio": 11.57,
+   "aa_normal_text": true
+  },
+  {
+   "fg": "flag",
+   "bg": "panel",
+   "fg_hex": "#fbbf24",
+   "bg_hex": "#111827",
+   "ratio": 10.63,
+   "aa_normal_text": true
+  },
+  {
+   "fg": "flag",
+   "bg": "panel2",
+   "fg_hex": "#fbbf24",
+   "bg_hex": "#1a2335",
+   "ratio": 9.42,
+   "aa_normal_text": true
+  },
+  {
+   "fg": "hold",
+   "bg": "bg",
+   "fg_hex": "#f87171",
+   "bg_hex": "#0a0e16",
+   "ratio": 6.98,
+   "aa_normal_text": true
+  },
+  {
+   "fg": "hold",
+   "bg": "panel",
+   "fg_hex": "#f87171",
+   "bg_hex": "#111827",
+   "ratio": 6.41,
+   "aa_normal_text": true
+  },
+  {
+   "fg": "hold",
+   "bg": "panel2",
+   "fg_hex": "#f87171",
+   "bg_hex": "#1a2335",
+   "ratio": 5.68,
+   "aa_normal_text": true
+  },
+  {
+   "fg": "blue",
+   "bg": "bg",
+   "fg_hex": "#78a6ff",
+   "bg_hex": "#0a0e16",
+   "ratio": 8.0,
+   "aa_normal_text": true
+  },
+  {
+   "fg": "blue",
+   "bg": "panel",
+   "fg_hex": "#78a6ff",
+   "bg_hex": "#111827",
+   "ratio": 7.35,
+   "aa_normal_text": true
+  },
+  {
+   "fg": "blue",
+   "bg": "panel2",
+   "fg_hex": "#78a6ff",
+   "bg_hex": "#1a2335",
+   "ratio": 6.51,
+   "aa_normal_text": true
+  },
+  {
+   "fg": "pass",
+   "bg": "pass-bg",
+   "fg_hex": "#4ade80",
+   "bg_hex": "#12301f",
+   "ratio": 8.21,
+   "aa_normal_text": true
+  },
+  {
+   "fg": "white",
+   "bg": "hold-bg",
+   "fg_hex": "#ffffff",
+   "bg_hex": "#b91c1c",
+   "ratio": 6.47,
+   "aa_normal_text": true
+  },
+  {
+   "fg": "flag-ink",
+   "bg": "flag",
+   "fg_hex": "#1f1500",
+   "bg_hex": "#fbbf24",
+   "ratio": 10.79,
+   "aa_normal_text": true
+  },
+  {
+   "fg": "white",
+   "bg": "blue-strong",
+   "fg_hex": "#ffffff",
+   "bg_hex": "#2f66e0",
+   "ratio": 5.12,
+   "aa_normal_text": true
+  },
+  {
+   "fg": "white",
+   "bg": "confirm",
+   "fg_hex": "#ffffff",
+   "bg_hex": "#b91c1c",
+   "ratio": 6.47,
+   "aa_normal_text": true
+  },
+  {
+   "fg": "white",
+   "bg": "escalate",
+   "fg_hex": "#ffffff",
+   "bg_hex": "#b45309",
+   "ratio": 5.02,
+   "aa_normal_text": true
+  },
+  {
+   "fg": "white",
+   "bg": "dismiss",
+   "fg_hex": "#ffffff",
+   "bg_hex": "#475569",
+   "ratio": 7.58,
+   "aa_normal_text": true
+  },
+  {
+   "fg": "focus",
+   "bg": "bg",
+   "fg_hex": "#93c5fd",
+   "bg_hex": "#0a0e16",
+   "ratio": 10.71,
+   "aa_normal_text": true
+  },
+  {
+   "fg": "focus",
+   "bg": "panel",
+   "fg_hex": "#93c5fd",
+   "bg_hex": "#111827",
+   "ratio": 9.84,
+   "aa_normal_text": true
+  }
+ ]
+}

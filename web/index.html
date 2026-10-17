@@ -7,16 +7,25 @@
 <script src="vendor/vis-network.min.js"></script>
 <script>window.vis || document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.9/standalone/umd/vis-network.min.js"><\/script>')</script>
 <style>
+@font-face{font-family:"IBM Plex Sans";src:url(vendor/fonts/ibm-plex-sans-latin-400-normal.woff2) format("woff2");font-weight:400;font-display:swap}
+@font-face{font-family:"IBM Plex Sans";src:url(vendor/fonts/ibm-plex-sans-latin-600-normal.woff2) format("woff2");font-weight:600;font-display:swap}
+@font-face{font-family:"IBM Plex Sans";src:url(vendor/fonts/ibm-plex-sans-latin-700-normal.woff2) format("woff2");font-weight:700 800;font-display:swap}
+@font-face{font-family:"IBM Plex Mono";src:url(vendor/fonts/ibm-plex-mono-latin-400-normal.woff2) format("woff2");font-weight:400;font-display:swap}
+@font-face{font-family:"IBM Plex Mono";src:url(vendor/fonts/ibm-plex-mono-latin-500-normal.woff2) format("woff2");font-weight:500 700;font-display:swap}
 :root{
   color-scheme:dark;
-  --bg:#0b0f17;--panel:#121826;--panel2:#182033;--line:#27324b;--text:#e8edf6;--mute:#9aa6c0;--faint:#6f7c98;
-  --pass:#4ade80;--pass-bg:rgba(74,222,128,.14);--flag:#fbbf24;--flag-ink:#1f1500;--hold:#f87171;--hold-bg:#b91c1c;
-  --blue:#6ea0ff;--blue-strong:#3b74f0;--focus:#93c5fd;
-  --s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px;--s6:32px;
-  --r:10px;--r-sm:7px;
-  --f-xs:11.5px;--f-sm:12.5px;--f-md:14px;--f-lg:18px;--f-xl:26px;
-  --font:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
-  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  /* palette: every text/background pair is checked by scripts/contrast_check.py (WCAG AA) */
+  --bg:#0a0e16;--panel:#111827;--panel2:#1a2335;--line:#2b3753;--text:#eef2f8;--mute:#a7b2c9;--faint:#8b97b1;
+  --pass:#4ade80;--pass-bg:#12301f;--flag:#fbbf24;--flag-ink:#1f1500;--hold:#f87171;--hold-bg:#b91c1c;
+  --blue:#78a6ff;--blue-strong:#2f66e0;--focus:#93c5fd;
+  /* 8px grid (4px half-step) */
+  --s1:4px;--s2:8px;--s3:16px;--s4:24px;--s5:32px;--s6:48px;
+  --r:12px;--r-sm:8px;
+  /* type scale ~1.2 */
+  --f-xs:12px;--f-sm:13px;--f-md:14px;--f-lg:18px;--f-xl:28px;--f-2xl:40px;
+  --font:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --ease:cubic-bezier(.2,.7,.2,1);
 }
 *{box-sizing:border-box}
 html,body{margin:0}
@@ -40,7 +49,46 @@ nav.side button:hover{background:var(--panel2);color:var(--text)}
 nav.side button[aria-current="page"]{background:var(--panel2);color:var(--text);box-shadow:inset 3px 0 0 var(--blue)}
 nav.side .ic{width:18px;text-align:center}
 main{padding:var(--s4) var(--s5) 48px;min-width:0}
-.page{display:none}.page.on{display:block}
+.page{display:none}.page.on{display:block;animation:pagein .18s var(--ease)}
+@keyframes pagein{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+/* overview */
+.hero{padding:var(--s4) 0 var(--s3)}
+.hero h1{font-size:var(--f-2xl);line-height:1.15;margin:0 0 var(--s2);max-width:20ch;letter-spacing:-.01em}
+.hero p{color:var(--mute);font-size:var(--f-lg);max-width:62ch;margin:0 0 var(--s3)}
+.btn.lg{padding:12px 20px;font-size:15px}
+.pipe{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--s3);margin:var(--s4) 0;position:relative}
+.step{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:var(--s3);position:relative}
+.step .n{font-size:var(--f-xs);color:var(--faint);text-transform:uppercase;letter-spacing:.08em}
+.step b.t{display:block;font-size:var(--f-md);margin:2px 0 var(--s2)}
+.step .v{font-size:var(--f-xl);font-weight:700;line-height:1.1}
+.step .h{color:var(--mute);font-size:var(--f-xs)}
+.step:not(:last-child)::after{content:"";position:absolute;top:50%;right:calc(-1 * var(--s3));width:var(--s3);height:2px;background:linear-gradient(90deg,var(--line) 0 50%,var(--blue) 50% 100%);background-size:12px 2px;animation:flow 1s linear infinite}
+@keyframes flow{to{background-position:12px 0}}
+.dcards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--s3)}
+.dcard{border:1px solid var(--line);border-radius:var(--r);padding:var(--s3);background:var(--panel)}
+.dcard h3{margin:0 0 var(--s1);font-size:var(--f-md)}.dcard p{margin:0;color:var(--mute);font-size:var(--f-sm)}
+.strip1{display:flex;flex-wrap:wrap;gap:var(--s2) var(--s4);align-items:center;margin-top:var(--s3);padding:var(--s3);border:1px solid var(--line);border-radius:var(--r);background:var(--panel)}
+.strip1 span{font-size:var(--f-sm);color:var(--mute)}.strip1 b{color:var(--text)}
+/* tour */
+.tour-hole{position:fixed;z-index:60;border-radius:10px;box-shadow:0 0 0 9999px rgba(3,6,12,.72);outline:2px solid var(--blue);pointer-events:none;transition:all .18s var(--ease)}
+.tour-tip{position:fixed;z-index:61;width:min(340px,calc(100vw - 32px));background:var(--panel2);border:1px solid var(--blue);border-radius:var(--r);padding:var(--s3);box-shadow:0 12px 32px rgba(0,0,0,.45)}
+.tour-tip h3{margin:0 0 var(--s1);font-size:var(--f-md)}.tour-tip p{margin:0 0 var(--s3);color:var(--mute);font-size:var(--f-sm)}
+/* case workspace */
+.ws{display:grid;grid-template-columns:minmax(0,1fr);gap:0}
+.ws-side{border-top:1px solid var(--line)}
+.gwrap{position:relative}
+.glegend{position:absolute;left:var(--s2);top:var(--s2);z-index:2;background:rgba(17,24,39,.92);border:1px solid var(--line);border-radius:8px;padding:6px 10px}
+.gtools{position:absolute;right:var(--s2);top:var(--s2);z-index:2;display:flex;gap:var(--s1)}
+.hovercard{position:absolute;z-index:3;pointer-events:none;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:var(--f-xs);min-width:180px;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.hovercard b{font-family:var(--mono);font-size:12px}
+@media (min-width:1200px){
+  .cases.open{grid-template-columns:minmax(0,1fr)}
+  .cases.open>.queue{display:none}
+  .ws{grid-template-columns:minmax(0,62fr) minmax(340px,38fr)}
+  .ws-side{border-top:0;border-left:1px solid var(--line);max-height:calc(100vh - 210px);overflow:auto}
+  .ws #graph{height:calc(100vh - 250px);min-height:460px}
+}
 h1{font-size:20px;margin:0 0 2px}
 .sub{color:var(--mute);margin:0 0 var(--s4)}
 /* blocks */
@@ -84,7 +132,7 @@ td.r,th.r{text-align:right}
 .strip button{flex:0 0 auto;display:flex;align-items:center;gap:6px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:5px 9px;cursor:pointer;font-size:var(--f-xs)}
 .strip button:hover{border-color:var(--blue)}
 .feed tr[data-alert]{cursor:pointer}.feed tr[data-alert]:hover{background:var(--panel2)}
-tr.new{animation:flash 1.2s}@keyframes flash{from{background:rgba(110,160,255,.18)}to{background:transparent}}
+tr.new{animation:rowin .2s var(--ease)}@keyframes rowin{from{opacity:0;transform:translateY(-6px);background:rgba(120,166,255,.16)}to{opacity:1;transform:none}}
 .bar{display:inline-block;width:64px;height:6px;background:var(--panel2);border-radius:3px;vertical-align:middle;margin-right:6px;overflow:hidden}.bar i{display:block;height:100%}
 .mix{display:flex;height:12px;border-radius:6px;overflow:hidden;background:var(--panel2);margin:6px 0 8px}.mix i{display:block;height:100%}
 .progress{height:6px;background:var(--panel2);border-radius:3px;overflow:hidden;margin-top:8px}.progress i{display:block;height:100%;background:var(--blue)}
@@ -125,7 +173,7 @@ tr.best td{font-weight:700;background:rgba(110,160,255,.08)}
 .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--line);padding:10px 16px;border-radius:8px;z-index:50;max-width:calc(100vw - 32px)}
 .result{margin-top:var(--s3);padding:var(--s4);border-radius:var(--r);border:1px solid var(--line);background:var(--panel2)}
 .big{font-size:28px;font-weight:800}
-@media (max-width:1100px){.kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.two,.cases{grid-template-columns:minmax(0,1fr)}.sys{grid-template-columns:repeat(2,minmax(0,1fr))}.list{max-height:360px}}
+@media (max-width:1100px){.pipe,.dcards{grid-template-columns:repeat(2,minmax(0,1fr))}.step:nth-child(2)::after{display:none}.kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.two,.cases{grid-template-columns:minmax(0,1fr)}.sys{grid-template-columns:repeat(2,minmax(0,1fr))}.list{max-height:360px}}
 @media (max-width:760px){
   .shell{grid-template-columns:minmax(0,1fr)}
   nav.side{flex-direction:row;overflow-x:auto;border-right:0;border-bottom:1px solid var(--line);padding:var(--s1) var(--s2);position:sticky;top:47px;z-index:15}
@@ -133,6 +181,7 @@ tr.best td{font-weight:700;background:rgba(110,160,255,.08)}
   nav.side button[aria-current="page"]{box-shadow:inset 0 -3px 0 var(--blue)}
   main{padding:var(--s3) var(--s4) 40px}
   .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.sys{grid-template-columns:minmax(0,1fr)}
+  .pipe,.dcards{grid-template-columns:minmax(0,1fr)}.step::after{display:none}.hero h1{font-size:30px}
   .who input{width:100px}#graph{height:340px}
   .hide-sm{display:none}
 }
@@ -147,7 +196,8 @@ tr.best td{font-weight:700;background:rgba(110,160,255,.08)}
 </header>
 <div class="shell">
 <nav class="side" id="nav" aria-label="Sections">
-  <button data-p="live" aria-current="page"><span class="ic" aria-hidden="true">◉</span>Live</button>
+  <button data-p="overview" aria-current="page"><span class="ic" aria-hidden="true">◇</span>Overview</button>
+  <button data-p="live"><span class="ic" aria-hidden="true">◉</span>Live</button>
   <button data-p="cases"><span class="ic" aria-hidden="true">⚑</span>Cases <span id="navCount" class="meta"></span></button>
   <button data-p="score"><span class="ic" aria-hidden="true">✎</span>Score</button>
   <button data-p="evidence"><span class="ic" aria-hidden="true">▤</span>Evidence</button>
@@ -156,8 +206,29 @@ tr.best td{font-weight:700;background:rgba(110,160,255,.08)}
 <main id="main">
 <div id="banner" class="banner hidden" role="alert"></div>
 
+<!-- OVERVIEW -->
+<section class="page on" id="p-overview" aria-labelledby="h-ov">
+  <div class="hero">
+    <h1 id="h-ov">Catch mule-account networks as the money moves</h1>
+    <p>Stolen money is split across many accounts and passed on within minutes, so each payment looks normal on its own. MuleTrace scores every payment against the last hour of money flowing around it, explains why, and leaves the decision to an investigator.</p>
+    <div class="row"><button class="btn lg" id="ovStart">▶ Start live investigation</button><button class="btn ghost lg" id="ovTour">Take the 60-second tour</button></div>
+  </div>
+  <div class="pipe" aria-label="How MuleTrace processes payments, with live numbers">
+    <div class="step"><div class="n">1 · Payment stream</div><b class="t">Held-out test payments, in time order</b><div class="v" id="ovScored">–</div><div class="h" id="ovRate">payments scored</div></div>
+    <div class="step"><div class="n">2 · 60-min flow memory</div><b class="t">Money in/out per account</b><div class="v" id="ovAcc">–</div><div class="h">accounts tracked</div></div>
+    <div class="step"><div class="n">3 · Network risk model</div><b class="t">20 signals · XGBoost on CPU</b><div class="v"><span id="ovFlag" style="color:var(--flag)">–</span> <span class="h">⚑</span> · <span id="ovHold" style="color:var(--hold)">–</span> <span class="h">⏸</span></div><div class="h" id="ovMs">FLAG · HOLD so far</div></div>
+    <div class="step"><div class="n">4 · Human investigator</div><b class="t">Confirm, escalate or dismiss</b><div class="v" id="ovDecided">–</div><div class="h" id="ovOpen">cases decided</div></div>
+  </div>
+  <div class="dcards">
+    <div class="dcard"><h3><span class="badge b-PASS"><span aria-hidden="true">✓</span>PASS</span></h3><p>No action. The payment proceeds and nothing is queued.</p></div>
+    <div class="dcard"><h3><span class="badge b-FLAG"><span aria-hidden="true">⚑</span>FLAG</span></h3><p>Top 1% of risk. The payment proceeds and a case is queued for an investigator.</p></div>
+    <div class="dcard"><h3><span class="badge b-HOLD"><span aria-hidden="true">⏸</span>HOLD</span></h3><p>Top 0.2% of risk. A <b>simulated recommendation</b> to pause the payment: no money is actually held. A human decides.</p></div>
+  </div>
+  <div class="strip1" id="ovStrip" aria-label="Platform facts"><span class="meta">Reading platform facts…</span></div>
+</section>
+
 <!-- LIVE -->
-<section class="page on" id="p-live" aria-labelledby="h-live">
+<section class="page" id="p-live" aria-labelledby="h-live">
   <h1 id="h-live">Live payment monitor</h1>
   <p class="sub">Each payment is scored as it arrives: <b style="color:var(--pass)">✓ PASS</b>, <b style="color:var(--flag)">⚑ FLAG</b> (human review) or <b style="color:var(--hold)">⏸ HOLD</b> (recommended pause, simulated).</p>
   <div class="grid kpis">
@@ -168,7 +239,7 @@ tr.best td{font-weight:700;background:rgba(110,160,255,.08)}
     <div class="kpi"><div class="l">Decision time p50</div><div class="v" id="kMs" style="color:var(--pass)">–</div><div class="h" id="kMs2">ms, server-side</div></div>
   </div>
   <div class="grid two">
-    <div class="card"><h2>Payment stream</h2><div class="cb">
+    <div class="card" id="streamCard"><h2>Payment stream</h2><div class="cb">
       <div class="meta">Replays the held-out test payments (never used in training) into the live system, in time order.</div>
       <label id="speedLbl">Speed</label>
       <div class="seg" id="speed" role="group" aria-labelledby="speedLbl"><button data-v="20" aria-pressed="false">20/s</button><button data-v="50" aria-pressed="true">50/s</button><button data-v="100" aria-pressed="false">100/s</button><button data-v="200" aria-pressed="false">200/s</button></div>
@@ -179,7 +250,7 @@ tr.best td{font-weight:700;background:rgba(110,160,255,.08)}
       <div class="mix" id="mix" aria-hidden="true"></div>
       <div class="legend"><span><i class="dot" style="background:var(--pass)"></i>✓ PASS <b id="mP">–</b></span><span><i class="dot" style="background:var(--flag)"></i>⚑ FLAG <b id="mF">–</b></span><span><i class="dot" style="background:var(--hold)"></i>⏸ HOLD <b id="mH">–</b></span></div>
     </div></div>
-    <div class="card"><h2>Live decisions <span class="row"><span id="paused" class="pill warn hidden" role="status">❚❚ paused while pointer is over the table</span><label class="meta" style="margin:0;text-transform:none;letter-spacing:0"><input type="checkbox" id="onlyFlag" style="width:auto;vertical-align:-2px"> FLAG/HOLD only</label></span></h2>
+    <div class="card" id="feedCard"><h2>Live decisions <span class="row"><span id="paused" class="pill warn hidden" role="status">❚❚ paused while pointer is over the table</span><label class="meta" style="margin:0;text-transform:none;letter-spacing:0"><input type="checkbox" id="onlyFlag" style="width:auto;vertical-align:-2px"> FLAG/HOLD only</label></span></h2>
       <div class="cb" style="padding-bottom:0"><div class="meta">Latest FLAG/HOLD</div><div class="strip" id="strip"><span class="meta">None yet.</span></div></div>
       <div class="feed" id="feedBox"><table><thead><tr><th>Decision</th><th>Risk</th><th>From → To</th><th class="r">Amount</th><th class="r hide-sm">Time</th></tr></thead><tbody id="feed"></tbody></table>
       <div id="feedSkel" class="cb"><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>
@@ -198,40 +269,48 @@ tr.best td{font-weight:700;background:rgba(110,160,255,.08)}
     <label for="fSort" class="sr">Sort</label><select id="fSort" style="width:auto"><option value="risk">Sort: highest risk</option><option value="time">Sort: newest</option></select>
     <button class="btn" id="bestRing" title="Among open cases, opens the one whose sender and receiver have the most counterparties in the last hour">★ Best ring to show</button>
   </div>
-  <div class="grid cases">
-    <div class="card"><h2>Queue <span id="aCount"></span></h2><div class="list" id="list" role="listbox" aria-label="Cases"></div></div>
+  <div class="grid cases" id="casesGrid">
+    <div class="card queue"><h2>Queue <span id="aCount"></span></h2><div class="list" id="list" role="listbox" aria-label="Cases"></div></div>
     <div class="card" id="detail">
-      <h2>Case <button class="btn ghost hidden" id="closeCase" style="padding:4px 10px" aria-label="Close case (Esc)">✕ Close</button></h2>
+      <h2>Case <button class="btn ghost hidden" id="closeCase" style="padding:4px 10px" aria-label="Back to the queue (Esc)">← Queue <span class="faint">Esc</span></button></h2>
       <div class="empty" id="ph">Select a case to open it.</div>
-      <div id="case" class="hidden">
-        <div class="cb">
-          <div class="r1"><div class="row"><span id="cBadge"></span><span class="big" id="cAmt" style="font-size:22px"></span></div>
-            <div class="gauge" title="Model risk score"><span class="meta">risk</span><div class="track"><div class="needle" id="cNeedle"></div></div><b id="cRisk"></b></div></div>
-          <div class="banner warn" style="margin:var(--s3) 0 0" id="cRec"></div>
-          <div class="details" id="cDetails"></div>
-        </div>
-        <div class="cb row" style="justify-content:space-between;padding-top:0"><div class="legend"><span><i class="dot" style="background:#6ea0ff"></i>Paid in</span><span><i class="dot" style="background:#f87171"></i>Flagged payment</span><span><i class="dot" style="background:#4ade80"></i>Paid onward</span></div>
-          <span class="row"><span class="meta">click a node to expand it (max 2)</span><button class="btn ghost" id="fitBtn" style="padding:4px 10px">⤢ Fit graph</button></span></div>
-        <div id="graph" role="img" aria-label="Money flow around the flagged payment: sender's payers, sender, receiver, receiver's payees"></div>
-        <div class="cb"><div class="meta" id="gInfo"></div>
-          <div class="meta" style="margin-top:var(--s3);font-weight:700">Ring patterns found</div>
-          <ul class="reasons" id="cReasons"></ul>
-          <div class="meta" style="margin-top:var(--s2)">Network signals <span class="faint">(model contribution, log-odds)</span></div>
-          <ul class="reasons" id="cNet"></ul>
-          <div class="meta" style="margin-top:var(--s2)">Payment context</div>
-          <ul class="reasons" id="cPay"></ul>
-          <label for="cNote">Investigator note <span id="noteReq">(required for Confirm and Escalate)</span></label>
-          <textarea id="cNote" rows="2" maxlength="500" placeholder="What did you check?"></textarea>
-          <div class="ferr" id="noteErr" aria-live="polite"></div>
-          <div class="row" id="cActions" style="margin-top:var(--s2)">
-            <button class="btn confirm" data-a="confirm">Confirm laundering</button>
-            <button class="btn escalate" data-a="escalate">Escalate</button>
-            <button class="btn dismiss" data-a="dismiss">Dismiss</button>
-            <span class="sim">SIMULATED · recorded in audit log</span>
+      <div id="case" class="hidden ws">
+        <div class="ws-graph" id="graphPanel">
+          <div class="gwrap">
+            <div class="glegend legend" aria-label="Graph legend"><span><i class="dot" style="background:#78a6ff"></i>Paid in</span><span><i class="dot" style="background:#f87171"></i>Flagged payment</span><span><i class="dot" style="background:#4ade80"></i>Paid onward</span><span>size = money moved</span></div>
+            <div class="gtools"><button class="btn ghost" id="resetBtn" style="padding:4px 10px">↺ Reset view</button><button class="btn ghost" id="fitBtn" style="padding:4px 10px">⤢ Fit</button></div>
+            <div id="graph" role="img" aria-label="Money flow around the flagged payment: sender's payers, sender, receiver, receiver's payees"></div>
+            <div class="hovercard hidden" id="hoverCard" role="tooltip"></div>
           </div>
-          <div class="meta" id="cStatus" style="margin-top:6px"></div>
-          <div class="meta" style="margin-top:var(--s3)">Audit timeline</div>
-          <ul class="timeline" id="cAudit"></ul>
+          <div class="cb"><div class="meta" id="gInfo"></div><div class="meta">Click a node to expand its flows (max 2). Hover a node or edge for amounts.</div></div>
+        </div>
+        <div class="ws-side">
+          <div class="cb">
+            <div class="r1"><div class="row"><span id="cBadge"></span><span class="big" id="cAmt" style="font-size:22px"></span></div>
+              <div class="gauge" title="Model risk score"><span class="meta">risk</span><div class="track"><div class="needle" id="cNeedle"></div></div><b id="cRisk"></b></div></div>
+            <div class="details" id="cDetails"></div>
+            <div class="meta" style="margin-top:var(--s3);font-weight:700">Ring patterns found</div>
+            <ul class="reasons" id="cReasons"></ul>
+            <div class="meta" style="margin-top:var(--s2)">Network signals <span class="faint">(model contribution, log-odds)</span></div>
+            <ul class="reasons" id="cNet"></ul>
+            <div class="meta" style="margin-top:var(--s2)">Payment context</div>
+            <ul class="reasons" id="cPay"></ul>
+            <div class="banner warn" style="margin:var(--s3) 0 0" id="cRec"></div>
+            <div id="actionsBox">
+              <label for="cNote">Investigator note <span id="noteReq">(required for Confirm and Escalate)</span></label>
+              <textarea id="cNote" rows="2" maxlength="500" placeholder="What did you check?"></textarea>
+              <div class="ferr" id="noteErr" aria-live="polite"></div>
+              <div class="row" id="cActions" style="margin-top:var(--s2)">
+                <button class="btn confirm" data-a="confirm">Confirm laundering</button>
+                <button class="btn escalate" data-a="escalate">Escalate</button>
+                <button class="btn dismiss" data-a="dismiss">Dismiss</button>
+              </div>
+              <div class="row" style="margin-top:var(--s1)"><span class="sim">SIMULATED · recorded in audit log</span></div>
+              <div class="meta" id="cStatus" style="margin-top:6px"></div>
+              <div class="meta" style="margin-top:var(--s3);font-weight:700">Audit timeline</div>
+              <ul class="timeline" id="cAudit"></ul>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -269,7 +348,8 @@ tr.best td{font-weight:700;background:rgba(110,160,255,.08)}
   <h1 id="h-sys">System</h1>
   <p class="sub">Read live from the machine this console is connected to.</p>
   <div class="grid sys" id="sysKv"><div class="skel"></div></div>
-  <div class="card" style="margin-top:var(--s3)"><h2>Why LinuxONE <span class="meta" style="text-transform:none;letter-spacing:0">measured facts only · details in docs/LINUXONE.md</span></h2><div class="cb" id="whyBox"><div class="skel"></div></div></div>
+  <div class="card" style="margin-top:var(--s3)"><h2>Trust panel <a class="meta" style="text-transform:none;letter-spacing:0;color:var(--blue)" href="https://github.com/Adib-07/MULETRACE/blob/main/docs/LINUXONE.md" target="_blank" rel="noopener">details: docs/LINUXONE.md ↗</a></h2>
+    <div class="cb grid" id="trust" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr))"><div class="skel"></div></div></div>
   <div class="card" style="margin-top:var(--s3)"><h2>How a payment flows</h2><div class="cb">
     <div class="flow">
       <div class="s"><b>1 · Payment arrives</b><span>Validated: time order, amount, accounts</span></div><div class="ar" aria-hidden="true">→</div>
@@ -284,6 +364,9 @@ tr.best td{font-weight:700;background:rgba(110,160,255,.08)}
 </main>
 </div>
 <div class="toast hidden" id="toast" role="status" aria-live="polite"></div>
+<div id="tourHole" class="tour-hole hidden"></div>
+<div id="tourTip" class="tour-tip hidden" role="dialog" aria-modal="false" aria-labelledby="tourTitle"><h3 id="tourTitle"></h3><p id="tourText"></p>
+  <div class="row" style="justify-content:space-between"><span class="meta" id="tourStep"></span><span class="row"><button class="btn ghost" id="tourSkip">Skip</button><button class="btn ghost" id="tourBack">Back</button><button class="btn" id="tourNext">Next</button></span></div></div>
 
 <script>
 // ---------- config ----------
@@ -295,11 +378,11 @@ try{
   TOKEN = sessionStorage.getItem("mtToken") || "";
 }catch(e){ TOKEN = qs.get("token") || ""; }
 
-// Recorded sample (samples/*.json, 3,000-payment replay on the LinuxONE VM, first model). Demo mode only: opt-in and labelled.
+// Recorded sample (samples/*.json: 3,000-payment replay on the LinuxONE VM with the FIRST, pre-hardening model).
+// Demo mode only: opt-in, labelled, no metrics shown (those come from eval/ on the live server).
 const SAMPLE_ALERTS = [{"id":11,"ts":27702196,"src":"0210575_806A8FB00","dst":"0215841_80F1BB2B0","amount":1292091.71,"score":0.9957,"decision":"HOLD","reasons":["Sender is passing on 100% of money it received 0 min ago"],"status":"open"},{"id":25,"ts":27702199,"src":"021745_803366440","dst":"0021615_8036AE1C0","amount":43038.53,"score":0.993,"decision":"HOLD","reasons":["Sender is passing on 100% of money it received 0 min ago"],"status":"open"},{"id":13,"ts":27702196,"src":"070_1004286A8","dst":"01490_8019BD7D0","amount":5215.78,"score":0.9573,"decision":"FLAG","reasons":["Sender is passing on 100% of money it received 4 min ago","Sender paid 413 different accounts in the last hour"],"status":"open"},{"id":26,"ts":27702199,"src":"0223635_812D9FD20","dst":"0143508_8130D6F60","amount":603.02,"score":0.7717,"decision":"FLAG","reasons":["Receiver got money from 36 different accounts in the last hour","15 payments hit the receiver within 10 minutes"],"status":"open"}];
 const SAMPLE_STATS = {"scored":3000,"pass":2972,"flag":24,"hold":4,"avg_ms":1.52,"per_sec":0,"replay":{"running":false,"pos":0,"total":400000}};
 const SAMPLE_SYSTEM = {"arch":"s390x","byteorder":"big","python":"3.12.3","nnpa":true,"machine_type":"9175","data_egress":"none"};
-const SAMPLE_METRICS = [{"model":"A: transaction-only model","pr_auc":0.0094,"recall":0.194,"precision":0.016,"review_pct":1.18,"fp_per_1000":11.62},{"model":"B: simple rules","pr_auc":0.0021,"recall":0.003,"precision":0.0,"review_pct":1.17,"fp_per_1000":11.68},{"model":"C: MuleTrace network model","pr_auc":0.2188,"recall":0.457,"precision":0.05,"review_pct":0.9,"fp_per_1000":8.57}];
 const CURRENCIES = ["US Dollar","Euro","UK Pound","Yuan","Yen","Rupee","Swiss Franc","Canadian Dollar","Australian Dollar","Mexican Peso","Brazil Real","Ruble","Shekel","Saudi Riyal","Bitcoin"];
 const FORMATS = ["ACH","Wire","Cheque","Credit Card","Cash","Bitcoin","Reinvestment"];
 const MACHINES = {"9175":"IBM z17","9176":"IBM z17","3931":"IBM z16","3932":"IBM z16","8561":"IBM z15","8562":"IBM z15"};
@@ -362,6 +445,7 @@ function setMode(m, detail){
   $("scoreBtn").disabled = !live;
   document.querySelectorAll("#cActions button").forEach(x => x.disabled = !live);
   if(!live){ $("startBtn").disabled = true; $("stopBtn").disabled = true; }
+  if(page === "overview") loadOverview();
   machinePill();
 }
 function segment(id, cb){
@@ -375,12 +459,13 @@ function onActivate(container, selector, fn){
 }
 
 // ---------- navigation ----------
-const PAGES = ["live","cases","score","evidence","system"];
+const PAGES = ["overview","live","cases","score","evidence","system"];
 function show(p){
   page = p;
   document.querySelectorAll("#nav button").forEach(b => b.dataset.p===p ? b.setAttribute("aria-current","page") : b.removeAttribute("aria-current"));
   document.querySelectorAll(".page").forEach(s => s.classList.toggle("on", s.id==="p-"+p));
   if(location.hash !== "#"+p) location.hash = p;          // pushes a history entry, so back/forward work
+  if(p==="overview") loadOverview();
   if(p==="cases"){ loadAlerts(); if(network) setTimeout(()=>network.fit(), 50); }
   if(p==="evidence") loadEvidence();
   if(p==="system") loadSystem();
@@ -391,11 +476,30 @@ document.addEventListener("keydown", e => { if(e.key === "Escape" && page === "c
 
 // ---------- live ----------
 let seen = new Set();
+const REDUCED = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+function tween(el, to, fmt = num, ms = 400){       // count up/down to the new value; instant with reduced motion
+  if(to == null || isNaN(to)){ el.textContent = "–"; el._v = null; return; }
+  const from = el._v ?? to; el._v = to;
+  if(REDUCED || from === to){ el.textContent = fmt(to); return; }
+  const t0 = performance.now(); cancelAnimationFrame(el._raf);
+  const step = now => { const k = Math.min(1, (now - t0) / ms), e = 1 - Math.pow(1 - k, 3); el.textContent = fmt(from + (to - from) * e); if(k < 1) el._raf = requestAnimationFrame(step); };
+  el._raf = requestAnimationFrame(step);
+}
+const intf = v => num(Math.round(v));
+function renderOverview(s){
+  const decided = Object.entries(s.by_status || {}).filter(([k]) => k !== "open").reduce((a, [,v]) => a + v, 0);
+  tween($("ovScored"), s.scored || 0, intf); $("ovRate").textContent = `payments scored · ${s.per_sec ?? 0}/s now`;
+  if(s.accounts_tracked != null) tween($("ovAcc"), s.accounts_tracked, intf); else $("ovAcc").textContent = "–";
+  tween($("ovFlag"), s.flag ?? s.review ?? 0, intf); tween($("ovHold"), s.hold || 0, intf);
+  $("ovMs").textContent = s.p50_ms != null ? `FLAG · HOLD so far · p50 ${Number(s.p50_ms).toFixed(2)} ms` : "FLAG · HOLD so far";
+  tween($("ovDecided"), decided, intf); $("ovOpen").textContent = `cases decided · ${num((s.by_status||{}).open || 0)} open`;
+}
 function renderStats(s){
+  renderOverview(s);
   const flag = s.flag ?? s.review ?? 0, hold = s.hold || 0, flagged = flag + hold;
-  $("kScored").textContent = num(s.scored||0);
-  $("kRate").textContent = s.per_sec ?? 0;
-  $("kFlag").textContent = num(flag); $("kHold").textContent = num(hold);
+  tween($("kScored"), s.scored||0, intf);
+  tween($("kRate"), s.per_sec ?? 0, v => v.toFixed(1));
+  tween($("kFlag"), flag, intf); tween($("kHold"), hold, intf);
   $("kMs").textContent = s.p50_ms != null ? Number(s.p50_ms).toFixed(2) : (s.avg_ms ? Number(s.avg_ms).toFixed(2) : "–");
   $("kMs2").textContent = s.p50_ms != null ? `ms server-side · p95 ${Number(s.p95_ms).toFixed(2)}` : (s.avg_ms ? "ms mean (recorded sample)" : "ms, server-side");
   const pass = s.pass ?? s.allow ?? Math.max(0, (s.scored||0) - flagged), tot = Math.max(1, pass + flagged);
@@ -509,7 +613,7 @@ async function openAlert(id){
   let a = alerts.find(x => x.id===id);
   if(!a && mode !== "demo"){ try{ a = await api("/alerts/" + id); }catch(e){ toast(e.message); return; } }
   if(!a) return;
-  selected = a; renderList();
+  selected = a; renderList(); $("casesGrid").classList.add("open");
   show_($("ph"), false); show_($("case"), true); show_($("closeCase"), true);
   const d = dec(a.decision);
   $("cBadge").innerHTML = badge(d) + (a.status !== "open" ? ` <span class="badge b-st">${esc(a.status)}</span>` : "");
@@ -528,7 +632,7 @@ async function openAlert(id){
   loadAudit(a.id); drawCase(a);
 }
 function closeCase(){
-  const id = selected && selected.id; selected = null;
+  const id = selected && selected.id; selected = null; $("casesGrid").classList.remove("open"); hideHover();
   show_($("case"), false); show_($("ph"), true); show_($("closeCase"), false); renderList();
   const el = id && $("list").querySelector(`[data-id="${id}"]`); if(el) el.focus();
 }
@@ -561,9 +665,10 @@ async function loadAudit(id){
 }
 let gNodes = null, gEdges = null, gLevel = new Map(), gSelf = new Map(), gCase = null, expansions = 0;
 const G_MAX_NODES = 60, G_MAX_EXPAND = 2;
+let gVol = new Map(), gRole = new Map(), gStats = new Map(), gAnim = 0;
 function gNode(id, level, color, role, size=13){
   if(gLevel.has(id) || gLevel.size >= G_MAX_NODES) return gLevel.has(id);
-  gLevel.set(id, level);
+  gLevel.set(id, level); gRole.set(id, role);
   gNodes.add({id, level, label: short(id), title: `${id}\n${role}`, size, color:{background:color,border:"#0b0f17"}, font:{color:"#e8edf6",size:11,face:"monospace"}});
   return true;
 }
@@ -574,13 +679,42 @@ function gSelfBadge(id, amt, cnt){      // self-transfers become a badge on the 
 function gEdge(f, t, amt, cnt, tm, hi){
   if(f === t){ gSelfBadge(f, amt, cnt); return; }
   if(!gLevel.has(f) || !gLevel.has(t)) return;
+  if(!hi && gCase && f === gCase.src && t === gCase.dst) return;   // the flagged edge already covers this pair
   const id = f + "|" + t; if(gEdges.get(id) && !hi) return;
   const e = {id, from:f, to:t, arrows:"to", label: money(amt) + (cnt>1?` ×${cnt}`:""), title: `${money(amt)}${cnt>1?` in ${cnt} payments`:""}${tm?`\nlast at ${minTime(tm)}`:""}${hi?"\nflagged payment":""}`,
     width: hi?4:Math.min(1+Math.log10(1+amt/500),4), color:{color: hi?"#f87171":"#4a5878"}, font:{color: hi?"#fecaca":"#9aa6c0", size:10, strokeWidth:3, strokeColor:"#0e1420"}, smooth:{type:"cubicBezier",forceDirection:"horizontal"}};
-  gEdges.get(id) ? gEdges.update(e) : gEdges.add(e);
+  if(hi){ e.smooth = false; e.id = "FLAGGED"; }     // straight, so the moving dot follows it exactly
+  const known = gEdges.get(e.id);
+  if(!known || hi){ gVol.set(f, (gVol.get(f)||0) + amt); gVol.set(t, (gVol.get(t)||0) + amt); }
+  known ? gEdges.update(e) : gEdges.add(e);
 }
+function gResize(){             // node size by money moved through it in the visible graph
+  gNodes.update([...gLevel.keys()].map(id => ({id, size: Math.min(34, 10 + 4.5 * Math.log10(1 + (gVol.get(id)||0) / 100))})));
+}
+function hideHover(){ show_($("hoverCard"), false); }
+function showHover(id, dom){
+  const st = gStats.get(id), vol = gVol.get(id) || 0, self = gSelf.get(id);
+  $("hoverCard").innerHTML = `<b>${esc(id)}</b><div class="meta">${esc(gRole.get(id) || "")}</div>
+    ${st ? `<div>In (last hour): <b>${money(st.in_amount)}</b> · ${num(st.in_count)} payments · ${num(st.senders_total)} payers</div><div>Out (last hour): <b>${money(st.out_amount)}</b> · ${num(st.out_count)} payments · ${num(st.receivers_total)} payees</div>`
+         : `<div>Shown flows: <b>${money(vol)}</b></div><div class="meta">Click to load this account's totals</div>`}
+    ${self ? `<div>Self-transfers: <b>${money(self.amount)}</b> ×${self.count}</div>` : ""}`;
+  const box = $("graph").getBoundingClientRect();
+  $("hoverCard").style.left = Math.min(dom.x + 14, box.width - 200) + "px"; $("hoverCard").style.top = Math.max(8, dom.y - 10) + "px";
+  show_($("hoverCard"), true);
+}
+function flaggedDot(ctx){         // a dot travelling along the flagged payment, sender -> receiver
+  if(!gCase || gCase.src === gCase.dst || !network) return;
+  const pos = network.getPositions([gCase.src, gCase.dst]); const a = pos[gCase.src], b = pos[gCase.dst]; if(!a || !b) return;
+  const k = REDUCED ? 0.5 : (performance.now() % 1600) / 1600;
+  ctx.beginPath(); ctx.arc(a.x + (b.x - a.x) * k, a.y + (b.y - a.y) * k, 5, 0, 2 * Math.PI);
+  ctx.fillStyle = "#fecaca"; ctx.shadowColor = "#f87171"; ctx.shadowBlur = 12; ctx.fill(); ctx.shadowBlur = 0;
+}
+function animateGraph(){ cancelAnimationFrame(gAnim); if(REDUCED) return;
+  const loop = () => { if(network && page === "cases" && selected && !document.hidden) network.redraw(); gAnim = requestAnimationFrame(loop); };
+  gAnim = requestAnimationFrame(loop); }
 function gMerge(acc, g){        // add one account's 1-hop flows around its level
   const lv = gLevel.get(acc);
+  if(g.in_amount != null) gStats.set(acc, g);
   (g.edges||[]).forEach(e => {
     if(e.from === e.to){ gSelfBadge(e.from, e.amount, e.count); return; }
     if(e.to === acc && gNode(e.from, lv - 1, "#6ea0ff", "paid " + short(acc))) gEdge(e.from, acc, e.amount, e.count, e.t);
@@ -588,7 +722,7 @@ function gMerge(acc, g){        // add one account's 1-hop flows around its leve
   });
 }
 async function drawCase(a){
-  gCase = a; expansions = 0; gLevel = new Map(); gSelf = new Map();
+  gCase = a; expansions = 0; gLevel = new Map(); gSelf = new Map(); gVol = new Map(); gRole = new Map(); gStats = new Map(); hideHover();
   $("gInfo").textContent = "";
   if(!window.vis){ $("graph").innerHTML = '<div class="empty">Graph library could not load.</div>'; return; }
   gNodes = new vis.DataSet(); gEdges = new vis.DataSet();
@@ -600,7 +734,7 @@ async function drawCase(a){
   } else $("gInfo").textContent = "Demo mode: the money-flow graph needs the live API.";
   if(gCase !== a) return;                     // another case was opened meanwhile
   gEdge(a.src, a.dst, a.amount, 1, a.ts, true);
-  gMerge(a.src, gs); if(a.dst !== a.src) gMerge(a.dst, gd);
+  gMerge(a.src, gs); if(a.dst !== a.src) gMerge(a.dst, gd); gResize();
   if(gs.senders_total!=null) $("gInfo").textContent = `Last 60 minutes of stream time (older cases show fewer flows) · sender: ${gs.senders_total} payers, ${gs.receivers_total} payees · receiver: ${gd.senders_total} payers, ${gd.receivers_total} payees · largest 10 shown`;
   if(network) network.destroy();
   network = new vis.Network($("graph"), {nodes: gNodes, edges: gEdges}, {
@@ -608,6 +742,10 @@ async function drawCase(a){
     physics:false, interaction:{hover:true, tooltipDelay:80, keyboard:{enabled:true, bindToWindow:false}}, nodes:{shape:"dot", borderWidth:2}});
   network.once("afterDrawing", () => network.fit());
   network.on("click", p => { if(p.nodes.length) expandNode(p.nodes[0]); });
+  network.on("hoverNode", p => showHover(p.node, p.pointer.DOM));
+  network.on("blurNode", hideHover); network.on("dragStart", hideHover); network.on("zoom", hideHover);
+  network.on("afterDrawing", flaggedDot);
+  animateGraph();
 }
 async function expandNode(id){
   if(mode !== "live") return;
@@ -616,12 +754,13 @@ async function expandNode(id){
   expansions++;
   try{
     const g = await api(`/graph/${encodeURIComponent(id)}?limit=10`);
-    const before = gLevel.size; gMerge(id, g);
+    const before = gLevel.size; gMerge(id, g); gResize();
     $("gInfo").textContent = `Expanded ${short(id)}: ${g.senders_total} payers, ${g.receivers_total} payees in the last hour · +${gLevel.size - before} accounts (${expansions}/${G_MAX_EXPAND} expansions, ${gLevel.size}/${G_MAX_NODES} nodes)`;
     network.fit({animation:true});
   }catch(e){ expansions--; toast(e.message); }
 }
-$("fitBtn").onclick = () => { if(network) network.fit({animation:true}); };
+$("fitBtn").onclick = () => { if(network) network.fit({animation: !REDUCED}); };
+$("resetBtn").onclick = () => { if(gCase) drawCase(gCase); };
 $("cActions").addEventListener("click", async e => {
   const b = e.target.closest("button[data-a]"); if(!b || !selected || mode !== "live") return;
   const id = selected.id, action = b.dataset.a, note = $("cNote").value.trim(), analyst = $("analyst").value.trim() || "analyst";
@@ -678,7 +817,7 @@ async function scoreNow(){
 async function loadEvidence(){
   const body = $("evBody");
   let ev;
-  if(mode === "demo") ev = {metrics: SAMPLE_METRICS, report: null, report_shuf: null, latency: null, environment: null};
+  if(mode === "demo"){ $("evSub").textContent = "DEMO MODE"; body.innerHTML = '<div class="banner warn">Evidence is read from the eval/ files on the live server and is not available in demo mode. The same numbers are in eval/metrics_shuf.json, eval/metrics.json and eval/latency.json in the repository.</div>'; return; }
   else{
     body.innerHTML = '<div class="skel"></div><div class="skel"></div><div class="skel"></div>';
     try{ ev = await api("/evidence"); }
@@ -740,12 +879,23 @@ async function loadSystem(){
   }
   let ev = null; if(mode === "live"){ try{ ev = await api("/evidence"); }catch(e){} }
   const L = ev && ev.latency, E = ev && ev.environment;
-  $("whyBox").innerHTML = L ? `<ul class="reasons" style="font-size:var(--f-md)">
-    <li><b>Real-time on the machine that holds the data:</b> ${fx(L.inproc.all.p50,2)} ms median, ${fx(L.inproc.all.p99,2)} ms p99 per decision over ${num(L.inproc.all.n)} payments; over HTTP at ${esc(L.http_50rps.target_rate)} req/s, ${num(L.http_50rps.sent)} requests with ${Object.values(L.http_50rps.errors).reduce((a,b)=>a+b,0)} errors (eval/latency.json, ${esc(L.inproc.measured_at)}).</li>
-    <li><b>No data leaves the box:</b> scoring, flow memory, alerts and audit log are on this server; the API makes no outbound calls.</li>
-    <li><b>Runs natively on IBM Z:</b> ${esc(E ? E.uname_m : L.machine.arch)}, machine type ${esc(E ? E.machine_type : L.machine.machine_type)}, ${esc(E ? E.os : "")}; the whole pipeline and test suite run here.</li>
-    <li><b>On-chip AI is present, not yet used:</b> NNPA flag ${L.machine.nnpa_present ? "detected" : "not detected"}; inference is ${esc(L.machine.inference)}. We do not claim acceleration we have not measured.</li></ul>`
-    : `<div class="meta">${mode === "demo" ? "Demo mode: no measured files available." : "Not measured: eval/latency.json not found."}</div>`;
+  const col = (title, color, items) => `<div><div class="meta" style="font-weight:700;color:${color};text-transform:uppercase;letter-spacing:.06em">${title}</div><ul class="reasons" style="font-size:var(--f-sm)">${items.map(i => `<li>${i}</li>`).join("")}</ul></div>`;
+  $("trust").innerHTML = mode === "demo" ? '<div class="banner warn">Demo mode: the Trust panel needs live readings from the server.</div>' : [
+    col("✓ Verified on this machine", "var(--pass)", [
+      `Architecture <b>${esc(s.arch)}</b>, machine type <b>${esc(s.machine_type || "not reported")}</b> (read from /proc now)`,
+      L ? `Decision latency p50 <b>${fx(L.inproc.all.p50,2)} ms</b>, p99 <b>${fx(L.inproc.all.p99,2)} ms</b> over ${num(L.inproc.all.n)} payments (eval/latency.json, ${esc(L.inproc.measured_at)})` : "Latency: not measured (eval/latency.json missing)",
+      L ? `HTTP at ${esc(L.http_50rps.target_rate)} req/s: ${num(L.http_50rps.sent)} requests, ${Object.values(L.http_50rps.errors).reduce((a,b)=>a+b,0)} errors` : "HTTP load test: not measured",
+      E ? `${esc(E.os)}, Python ${esc(E.python)}, ${esc(E.cpus)} vCPU, ${esc(E.mem_gib)} GiB (eval/environment.json)` : "Environment file: not found",
+      `Outbound calls: <b>none</b> (declared: the API has no outbound network code)`]),
+    col("◇ Hardware capability, not used", "var(--blue)", [
+      `On-chip AI accelerator (NNPA, Telum II): <b>${s.nnpa ? "detected" : "not detected"}</b>`,
+      "Model C runs on the <b>CPU</b> (XGBoost). No NNPA speed-up is claimed.",
+      "Snap ML attempt: model import failed; Snap ML reports CPU-only mode here (docs/LINUXONE.md)."]),
+    col("⚠ Simulated", "var(--flag)", [
+      "<b>HOLD</b> is a recommendation: no payment is actually paused.",
+      "<b>Confirm / Escalate / Dismiss</b> are recorded in the audit log only; nothing is reported or blocked.",
+      "The payment stream is a replay of IBM's synthetic AML test data, not a bank feed."])
+  ].join("");
   const card = (l, v, h) => `<div class="kpi"><div class="l">${l}</div><div class="v" style="font-size:20px">${v}</div><div class="h">${h}</div></div>`;
   $("sysKv").innerHTML = (mode==="demo" ? '<div class="banner warn" style="grid-column:1/-1">Recorded /system reading (samples/system.json), not live.</div>' : "") + [
     card("Machine", esc(MACHINES[s.machine_type] || ("type " + (s.machine_type||"unknown"))), "machine type " + esc(s.machine_type||"not reported")),
@@ -763,13 +913,92 @@ function machinePill(){
   api("/system").then(s => { p.textContent = (MACHINES[s.machine_type] || "type " + (s.machine_type||"?")) + " · " + s.arch; p.className = "pill" + (s.arch==="s390x" ? " live" : ""); }).catch(() => {});
 }
 
+// ---------- overview ----------
+let ovLoaded = false;
+async function loadOverview(){
+  if(mode === "demo"){ $("ovStrip").innerHTML = '<span class="pill warn">DEMO</span><span>Recorded sample from the first model on the LinuxONE VM; platform facts need the live API.</span>'; return; }
+  if(ovLoaded || mode !== "live") return;
+  try{
+    const [s, ev] = await Promise.all([api("/system"), api("/evidence").catch(() => null)]);
+    const L = ev && ev.latency;
+    $("ovStrip").innerHTML = `<span><b>${esc(MACHINES[s.machine_type] || "machine type " + (s.machine_type || "?"))}</b> · type ${esc(s.machine_type || "?")}</span>
+      <span><b>${esc(s.arch)}</b> · ${esc(s.byteorder)}-endian</span>
+      <span>decision p50 <b>${L ? fx(L.inproc.all.p50,2) + " ms" : "not measured"}</b>${L ? " (eval/latency.json)" : ""}</span>
+      <span>outbound calls: <b>none</b> (declared)</span>
+      <span>NNPA <b>${s.nnpa ? "present" : "not detected"}</b> · model runs on CPU</span>`;
+    ovLoaded = true;
+  }catch(e){ $("ovStrip").innerHTML = `<span style="color:var(--hold)">Could not read platform facts: ${esc(e.message)}</span> <button class="btn ghost" id="ovRetry">Retry</button>`; $("ovRetry").onclick = loadOverview; }
+}
+$("ovStart").onclick = () => busy($("ovStart"), async () => {
+  if(mode !== "live"){ toast("Needs the live API"); return; }
+  try{
+    const st = await api("/stats");
+    if(!(st.replay && st.replay.running)) await api("/replay/start", {method:"POST", body: JSON.stringify({n: 400000, speed: Number(segVal("speed"))})});
+    toast("Payment stream started"); show("live"); await tick();
+  }catch(e){ toast(e.message); }
+});
+
+// ---------- guided tour ----------
+const TOUR = [
+  {page:"live", el:"#streamCard", t:"1 · The payment stream", x:"Held-out test payments are replayed in time order. Start, stop and pick a speed here; every payment is scored as it arrives."},
+  {page:"live", el:"#feedCard", t:"2 · Live decisions", x:"PASS, FLAG or HOLD with risk and server-side time. Hovering pauses the feed; the strip keeps the latest FLAG/HOLD one click away."},
+  {page:"cases", el:"#bestRing", t:"3 · Best ring to show", x:"Opens the open case whose sender and receiver have the most counterparties in the last hour, using live graph counts."},
+  {page:"cases", el:"#detail", t:"4 · Money flow and reasons", x:"The graph shows who paid the sender and where the money went next; click a node to expand. Ring patterns come first, then model signals that raise or lower risk."},
+  {page:"cases", el:"#actionsBox", alt:"#detail", t:"5 · A human decides, on the record", x:"Confirm, escalate or dismiss with a note. It is simulated (no money moves) and written to an append-only audit log."},
+];
+let tourI = -1, tourPrevFocus = null;
+function tourPlace(){
+  if(tourI < 0) return;
+  const st = TOUR[tourI]; let el = document.querySelector(st.el);
+  if((!el || !el.offsetParent) && st.alt) el = document.querySelector(st.alt);
+  if(!el) return;
+  el.scrollIntoView({block:"center", behavior: REDUCED ? "auto" : "smooth"});
+  setTimeout(() => {
+    const r = el.getBoundingClientRect(), h = $("tourHole"), tip = $("tourTip");
+    Object.assign(h.style, {left: (r.left - 6) + "px", top: (r.top - 6) + "px", width: (r.width + 12) + "px", height: Math.min(r.height + 12, innerHeight - 20) + "px"});
+    const below = r.bottom + 12 + 180 < innerHeight;
+    tip.style.left = Math.max(16, Math.min(r.left, innerWidth - tip.offsetWidth - 16)) + "px";
+    tip.style.top = (below ? Math.min(r.bottom + 12, innerHeight - tip.offsetHeight - 16) : Math.max(16, r.top - tip.offsetHeight - 12)) + "px";
+  }, REDUCED ? 0 : 220);
+}
+function tourGo(i){
+  if(i >= TOUR.length){ tourEnd(true); return; }
+  tourI = Math.max(0, i); const st = TOUR[tourI];
+  if(page !== st.page) show(st.page);
+  $("tourTitle").textContent = st.t; $("tourText").textContent = st.x;
+  $("tourStep").textContent = `${tourI + 1} / ${TOUR.length}`;
+  $("tourBack").disabled = tourI === 0; $("tourNext").textContent = tourI === TOUR.length - 1 ? "Finish" : "Next";
+  show_($("tourHole"), true); show_($("tourTip"), true); tourPlace(); $("tourNext").focus();
+}
+function tourStart(){ tourPrevFocus = document.activeElement; tourGo(0); }
+function tourEnd(done){
+  tourI = -1; show_($("tourHole"), false); show_($("tourTip"), false);
+  try{ sessionStorage.setItem("mtTour", done ? "done" : "skipped"); }catch(e){}
+  if(tourPrevFocus && tourPrevFocus.focus) tourPrevFocus.focus();
+}
+$("ovTour").onclick = tourStart;
+$("tourNext").onclick = () => tourGo(tourI + 1);
+$("tourBack").onclick = () => tourGo(tourI - 1);
+$("tourSkip").onclick = () => tourEnd(false);
+document.addEventListener("keydown", e => {
+  if(tourI < 0) return;
+  if(e.key === "Escape"){ e.stopImmediatePropagation(); tourEnd(false); }
+  else if(e.key === "ArrowRight") tourGo(tourI + 1); else if(e.key === "ArrowLeft") tourGo(tourI - 1);
+  else if(e.key === "Tab"){       // keep focus inside the tour dialog
+    const f = [...$("tourTip").querySelectorAll("button:not(:disabled)")], i = f.indexOf(document.activeElement);
+    e.preventDefault(); f[(i + (e.shiftKey ? f.length - 1 : 1)) % f.length].focus();
+  }
+}, true);
+addEventListener("resize", tourPlace);
+try{ if(sessionStorage.getItem("mtTour")) $("ovTour").textContent = "Replay the 60-second tour"; }catch(e){}
+
 // ---------- start ----------
 if(qs.get("demo") === "1") setMode("demo");
 tick();
 setInterval(() => { tick(); if(page==="cases" && mode==="live" && segVal("fStatus")==="open") refreshListQuietly(); }, 2000);
 let lastListLoad = 0;
 function refreshListQuietly(){ if(Date.now() - lastListLoad < 5000) return; lastListLoad = Date.now(); loadAlerts(); }
-{ const h = (location.hash || "").slice(1); show(PAGES.includes(h) ? h : (h==="investigate" ? "cases" : "live")); }
+{ const h = (location.hash || "").slice(1); show(PAGES.includes(h) ? h : (h==="investigate" ? "cases" : "overview")); }
 </script>
 </body>
 </html>
