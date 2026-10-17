@@ -185,7 +185,7 @@ We could not read the official Datathon rules from this environment, so none of 
 - the rules on originality and AI-tool use
 - whether a licence must be chosen
 
-## Team
+## 👥 Team
 
 | # | Name | Role |
 |---|---|---|
@@ -196,7 +196,11 @@ We could not read the official Datathon rules from this environment, so none of 
 | M5 | Aryan Nigam | Backend Development |
 | M6 | Anant Mehta | QA, Security, Documentation & Demo |
 
-Our team collaborates across data engineering, AI/ML, frontend, backend, infrastructure, security, and testing to build MuleTrace, an explainable, real-time mule-account investigation platform running on IBM LinuxONE. Each member owns a primary area of responsibility while contributing to system integration, validation, and the final demonstration.
+## 🤝 Team Responsibilities
+
+Our team collaborates across data engineering, AI/ML, frontend, backend, infrastructure, security, and testing to build MuleTrace, an explainable, real-time mule-account investigation platform running on IBM LinuxONE.
+
+Each member owns a primary area of responsibility while contributing to system integration, validation, and the final demonstration.
 
 ## License
 
