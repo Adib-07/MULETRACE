@@ -32,6 +32,8 @@ echo "public instance up on 127.0.0.1:$PORT (judge mode, DB $DB)"
 [ -s "$PUB_ENV" ] || { echo "missing $PUB_ENV with MULETRACE_HOST=<host>" >&2; exit 1; }
 [ -x "$CADDY" ] || { echo "missing $CADDY" >&2; exit 1; }
 tmux kill-session -t caddy 2>/dev/null || true
+pkill -u "$(id -u)" -x caddy 2>/dev/null || true       # tmux does not stop Caddy: without this, restarts leave stale instances holding 80/443
+for _ in $(seq 1 20); do pgrep -u "$(id -u)" -x caddy >/dev/null || break; sleep 0.5; done
 tmux new -d -s caddy "set -a && . '$PUB_ENV' && set +a && HOME='$HOME' '$CADDY' run --config '$REPO/deploy/Caddyfile' --adapter caddyfile 2>&1 | tee -a '$LOGDIR/caddy.log'"
 . "$PUB_ENV"
 for _ in $(seq 1 60); do curl -s -m 5 -o /dev/null "https://$MULETRACE_HOST/health" && break; sleep 2; done

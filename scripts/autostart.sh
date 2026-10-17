@@ -5,7 +5,7 @@
 #   bash scripts/autostart.sh --remove   remove it
 set -euo pipefail
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
-LINE="@reboot sleep 20 && bash $REPO/scripts/demo_start.sh --keep-db >> $REPO/autostart.log 2>&1 # muletrace-autostart"
+LINE="@reboot sleep 20 && bash $REPO/scripts/demo_start.sh --keep-db >> $REPO/autostart.log 2>&1 && bash $REPO/scripts/public_start.sh >> $REPO/autostart.log 2>&1 # muletrace-autostart"
 case "${1:-}" in
   --apply)  ( crontab -l 2>/dev/null | grep -v "# muletrace-autostart" || true; echo "$LINE" ) | crontab -; echo "installed:"; crontab -l | grep muletrace-autostart ;;
   --remove) ( crontab -l 2>/dev/null | grep -v "# muletrace-autostart" || true ) | crontab -; echo "removed" ;;

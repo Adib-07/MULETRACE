@@ -29,9 +29,7 @@
 			roll_keep 5
 		}
 		format filter {
-			request>uri query {
-				delete token
-			}
+			request>uri regexp \?.* ""
 			request>headers>X-Muletrace-Token delete
 			request>headers>Cookie delete
 			request>headers>Authorization delete

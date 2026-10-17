@@ -1,19 +1,21 @@
 # MuleTrace final readiness (final submission pass, 2026-10-18)
 
-Team Quorvex · IBM Z Datathon 2026 · Real-Time AI for Critical Decisions. Fallback tags: `v1-demo`, `v2-submission`, `v2.1-submission`. **This state: `v2.2-submission`.**
+Team Quorvex · IBM Z Datathon 2026 · Real-Time AI for Critical Decisions. Fallback tags: `v1-demo`, `v2-submission`, `v2.1-submission`. `v2.2-submission` = before going public. **This state: `v2.3-public`.**
 
 ## Verdict: CONDITIONALLY READY
 
 **Met:**
 - Every automated check below passes on the LinuxONE VM and in the browser.
-- Public judge mode is built and tested.
+- The public HTTPS judge demo is live and **verified from outside the VM** (valid Let's Encrypt certificate, judge-mode rules, rate limit, closed admin ports, restart recovery).
 - The admin app is never exposed.
 - Every number traces to `eval/`.
 
 **Missing:**
-1. **Public URL.** It needs your approval for three VM changes (firewall 80/443, `setcap` for Caddy, LinuxONE terms check) and then a verification from outside.
-2. **Team-only work:** the demo video, deck, short description and Hack2Skill submission.
-3. **Decisions:** reboot autostart, and the git-history key-filename cleanup.
+1. **Phone check** of the public URL on mobile data (I can only test from the Mac's network).
+2. **LinuxONE Community Cloud terms:** not read by me; confirm that a public web service is allowed.
+3. **Reboot autostart** (crontab, not applied): after a VM reboot the firewall rules persist but the apps do not restart on their own.
+4. **Team-only work:** the demo video, deck, short description and Hack2Skill submission (put the public URL in the form).
+5. **Decision:** the git-history key-filename cleanup.
 
 ## Changes in this pass
 
@@ -42,10 +44,16 @@ Team Quorvex · IBM Z Datathon 2026 · Real-Time AI for Critical Decisions. Fall
 | Links | PASS: 22 in README, 25 across docs | `scripts/check_links.py --all` |
 | Deploy: `demo_start.sh` (token not rotated) + `public_start.sh --app-only`; `/health` 200 on :8000 and :8100 | PASS | VM |
 | Listening sockets on the VM | PASS: SSH on 0.0.0.0; app :8000 and judge :8100 on 127.0.0.1 only | `ss -tlnp` |
-| External reachability (from the Mac, another network) | PASS: 22 open; 80, 443, 8000, 8100 closed | `nc -z` |
+| External reachability (from the Mac, another network) | PASS: 22, 80, 443 open; 8000, 8100 closed | `nc -z` |
 | Token in logs / tree / history | PASS: 0 / 0 / 0 | `grep -cF` (values never printed) |
 | Secret scan | PASS for keys, IP and tokens. **Open:** key *filename* 4× in history (commit `1b2bf28`), 0× in the tree | `git log --all -p \| grep` |
-| Public HTTPS URL from outside | **BLOCKED**: ports 80/443 rejected by the VM firewall; needs approval | – |
+| Public HTTPS: certificate (Let's Encrypt, 90 days), HTTP→HTTPS 308, HSTS + CSP + nosniff + no-referrer + DENY, `/health` 200, `/system` public_demo=true | PASS (from the Mac, other network) | `openssl s_client`, `curl` |
+| Judge rules over HTTPS: `/alerts` 200, wrong token 401, `/score` 403, replay 200/s 403, body > 16 KB 413; scanner probes `/.env`, `/.git/config`, path traversal 404 | PASS | `curl` |
+| Per-IP rate limit through Caddy: 400-request burst → 143×429, client recovers within 12 s | PASS | `xargs -P 40 curl` |
+| Judge-mode browser e2e over HTTPS | PASS: 5 checks (rate-limit step skipped, covered by the burst test above) | `e2e_public.py` against the public URL |
+| Lighthouse accessibility on the public URL | PASS: 100 (overview, cases, evidence) | `npx lighthouse@12.2.1` |
+| Caddy access log: no query strings, tokens, cookies | PASS: fake `?token=` and header values absent (tested; an earlier config logged `?limit=80`: fixed) | `grep` on the VM |
+| Restart recovery: kill app + Caddy, `public_start.sh`, URL back to 200, twice, exactly one Caddy | PASS (found and fixed: restarts leaked stale Caddy processes) | VM |
 | Reboot autostart | **BLOCKED**: crontab change needs approval (`scripts/autostart.sh`) | – |
 | Memory with both instances | 4.0 GiB used, 3.8 GiB available of 7.8 GiB | `free -h` |
 
@@ -68,17 +76,24 @@ Team Quorvex · IBM Z Datathon 2026 · Real-Time AI for Critical Decisions. Fall
 | Egress | 0 non-loopback connections (75 samples, 2,000 payments) | `eval/egress.json` |
 | NNPA path (Snap ML on zDNN) | PR-AUC 0.2012 vs C 0.2188; slower than Snap ML on CPU at batch 1/256; proof of NNPA use recorded | `eval/nnpa.json` |
 
-## Public URL status: NOT DEPLOYED (built and tested; awaiting approval)
+## Public URL status: VERIFIED from outside
 
-The VM firewall (`/etc/iptables/rules.v4`, `netfilter-persistent`) accepts only SSH and rejects everything else. Non-root processes cannot bind below port 1024 (`ip_unprivileged_port_start` = 1024). Everything else is ready: the judge-mode instance runs on 127.0.0.1:8100, and Caddy v2.11.7 for s390x is verified with a validated config.
+Hostname `<dashed-public-ip>.sslip.io` (kept out of the repo; it is in `~/.muletrace-public.env` on the VM and in the chat). What was changed on the VM, with your approval:
+- `setcap cap_net_bind_service=+ep` on `~/bin/caddy` (Caddy stays non-root).
+- iptables ACCEPT for TCP 80 and 443 (SSH rule untouched), saved with `netfilter-persistent` (backup of the old rules: `~/rules.v4.before-public`).
+- `~/.muletrace-public.env`, then `scripts/public_start.sh` (judge instance on 127.0.0.1:8100 in tmux `pub`, Caddy in tmux `caddy`).
 
-**Open ports now:** 22 (SSH) only.
+**Open ports now:** 22 (SSH), 80 (redirect + certificate challenge), 443 (HTTPS). **Closed:** 8000 (admin), 8100 (judge instance).
+
+**To undo:** `sudo iptables -D INPUT -p tcp -m conntrack --ctstate NEW --dport 80 -j ACCEPT` (same for 443), `sudo netfilter-persistent save`, `sudo setcap -r ~/bin/caddy`, `pkill -x caddy; tmux kill-session -t pub`.
 
 ## Remaining defects and security concerns
 
 - **One shared admin token**; analyst names are self-declared.
 - **The key filename in git history** (`1b2bf28`): not a secret; cleaning it needs a history rewrite and a force-push.
-- **Judge mode is a public service once exposed.** Rate limits and the demo reset limit abuse, but there is no per-user identity. The admin app stays private.
+- **Judge mode is a public service.** Rate limits, body cap and the demo reset limit abuse, but there is no per-user identity and no DDoS protection beyond per-IP limits; internet scanners already probe it (all 404). One public visitor can reset the demo for everyone (at most every 10 minutes).
+- **Public demo state is shared:** all judges see the same queue.
+- **The certificate renews automatically** (Caddy); it needs port 80 to stay open.
 - **Rate limits are per process and in memory** (they reset on restart). Behind Caddy the client IP comes from `X-Forwarded-For`, trusted only from localhost.
 - **Model evidence:** one split and seed; about 5% precision; the standard run partly depends on within-minute file order; tested to 50 payments/s on 3 vCPUs only.
 - **The NNPA path** needs `~/zdnn` (user-space library); it isn't installed system-wide.
@@ -103,14 +118,15 @@ The VM firewall (`/etc/iptables/rules.v4`, `netfilter-persistent`) accepts only 
 | UX & explainability | 10 | 10 | 10 | list race fixed; Lighthouse 100 in judge mode |
 | Security/privacy/oversight | 8 | 7 | 7 | roles, limits, headers, body cap; still a shared token and history filename |
 | Reliability/testing/deploy | 7 | 6 | 6 | restart verified; reboot autostart not applied |
-| Demo/reproducibility | 5 | 5 | 4 | no public URL yet: judges need the tunnel or a video |
-| **Total** | 100 | **84** | **84** | |
+| Demo/reproducibility | 5 | 5 | 5 | public HTTPS demo verified from outside; scripts and docs reproduce it |
+| **Total** | 100 | **84** | **85** | |
 
 ## Manual steps left (exact)
 
-1. **Approve the public URL** (three VM changes, see the chat message), then I run `scripts/public_start.sh` and verify from outside. Please also check from a phone on mobile data.
-2. **Or enable the static fallback:** GitHub → Adib-07/MULETRACE → Settings → Pages → Build and deployment → Source "Deploy from a branch" → Branch `main`, folder `/ (root)` → Save. The page then appears at `https://<owner>.github.io/MULETRACE/web/` (labelled MOCKED).
-3. **Record the demo video** following `docs/DEMO.md` (rotate the token first).
-4. **Write the deck and short description** from README TL;DR / Results / IBM LinuxONE.
-5. **Submit on Hack2Skill** (team ID, repo link, demo link or video, description, deck) before 18 Oct 2026 22:00 IST.
-6. **Decide** on `scripts/autostart.sh --apply` (crontab) and on the git-history rewrite.
+1. **Phone check:** open the public URL on mobile data; the Overview should load with the "Public demo" banner, and Start live investigation should work.
+2. **Confirm the LinuxONE Community Cloud terms allow a public web service** (I could not read them). If they do not, undo with the commands above and use the static fallback.
+3. **Decide on reboot autostart:** `bash ~/muletrace/scripts/autostart.sh --apply` (user crontab, no sudo; it now starts the admin app and the public demo).
+4. **Optional static page:** GitHub → Settings → Pages → Deploy from a branch → `main` / root → Save (labelled MOCKED).
+5. **Record the demo video** following `docs/DEMO.md`; **write the deck and short description** from README TL;DR / Results / IBM LinuxONE.
+6. **Submit on Hack2Skill** (team ID, repo link, public URL, video, description, deck) before 18 Oct 2026 22:00 IST.
+7. **Decide** on the git-history rewrite for the old key *filename*.
