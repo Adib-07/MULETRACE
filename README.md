@@ -189,9 +189,14 @@ We could not read the official Datathon rules from this environment, so none of 
 
 | # | Name | Role |
 |---|---|---|
-| M1 | Adib | TBD |
-| M2 | Anshu Kumar Singh | TBD |
-| M3 | Abhishek Tiwari | TBD |
+| M1 | Adib Sunasra | Team Lead, Product & Strategy, IBM LinuxONE Infrastructure & DevOps |
+| M2 | Anshu Kumar Singh | AI/ML & Data Engineering |
+| M3 | Abhishek Tiwari | Frontend & User Experience |
+| M4 | Omez Khan | System Integration & Security |
+| M5 | Aryan Nigam | Backend Development |
+| M6 | Anant Mehta | QA, Security, Documentation & Demo |
+
+Our team collaborates across data engineering, AI/ML, frontend, backend, infrastructure, security, and testing to build MuleTrace, an explainable, real-time mule-account investigation platform running on IBM LinuxONE. Each member owns a primary area of responsibility while contributing to system integration, validation, and the final demonstration.
 
 ## License
 
